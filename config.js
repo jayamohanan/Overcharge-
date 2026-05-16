@@ -144,17 +144,18 @@ var CONFIG = {
         EASE: 'Power2',
     },
 
-    // Platform stripes (top half) with gadget + battery slot per row
+        // Platform stripes (top half) with battery slot on left, gadget on right
     PLATFORM: {
-        Y_POSITIONS: [160, 320, 480],
-        STRIPE_WIDTH: 576,
-        STRIPE_HEIGHT: 14,
+        Y_POSITIONS: [200, 390, 580],
+        STRIPE_X: 20,         // left edge of stripe (20px screen padding)
+        STRIPE_WIDTH: 680,    // full width minus padding (20 each side)
+        STRIPE_HEIGHT: 18,
         STRIPE_COLOR: "#1e3a4a",
         STRIPE_ALPHA: 0.9,
-        SLOT_X: 510,
+        SLOT_X: 210,          // battery slot — left side
         SLOT_SIZE: 130,
         SLOT_RADIUS: 15,
-        GADGET_X: 130,
+        GADGET_X: 570,        // gadget — right side
         GADGET_SIZE: 85,
         CHARGE_BAR_WIDTH: 130,
         CHARGE_BAR_HEIGHT: 10,

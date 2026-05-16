@@ -108,49 +108,55 @@ class GameScene extends Phaser.Scene {
     createPlatforms() {
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
-            const cy  = P.Y_POSITIONS[i];
+            const cy  = P.Y_POSITIONS[i];  // stripe centre Y
             const sx  = P.SLOT_X;
             const ssz = P.SLOT_SIZE;
 
-            // Stripe
+            // Items sit ON TOP of the stripe: bottom edge == stripe top edge
+            const slotAboveY   = cy - P.STRIPE_HEIGHT / 2 - ssz / 2;
+            const gadgetAboveY = cy - P.STRIPE_HEIGHT / 2 - P.GADGET_SIZE / 2;
+
+            // Stripe background
             const stripe = this.add.graphics();
             stripe.fillStyle(hexColor(P.STRIPE_COLOR), P.STRIPE_ALPHA);
-            stripe.fillRoundedRect(0, cy - P.STRIPE_HEIGHT / 2, P.STRIPE_WIDTH, P.STRIPE_HEIGHT, 6);
+            stripe.fillRoundedRect(P.STRIPE_X, cy - P.STRIPE_HEIGHT / 2, P.STRIPE_WIDTH, P.STRIPE_HEIGHT, 6);
             stripe.setDepth(2);
 
-            // Slot backgrounds
+            // Charge fill overlay on the stripe (grows left→right as gadget charges)
+            const chargeFill = this.add.graphics().setDepth(2.5);
+
+            // Slot backgrounds (centred at slotAboveY, sitting above the stripe)
             const slotBg = this.add.graphics();
-            this._drawSlot(slotBg, sx, cy, ssz, false);
+            this._drawSlot(slotBg, sx, slotAboveY, ssz, false);
             slotBg.setDepth(3);
 
             const slotBgFilled = this.add.graphics();
-            this._drawSlot(slotBgFilled, sx, cy, ssz, true);
+            this._drawSlot(slotBgFilled, sx, slotAboveY, ssz, true);
             slotBgFilled.setDepth(3);
             slotBgFilled.setVisible(false);
 
-            // Slot label
-            const slotLabel = this.add.text(sx, cy + ssz / 2 + 12, 'SLOT', {
-                fontSize: '14px', fontFamily: CONFIG.FONT_FAMILY,
+            // Charge-rate label ABOVE slot (shown when a battery is present)
+            const chargeRateText = this.add.text(sx - 2, slotAboveY - ssz / 2 - 10, '', {
+                fontSize: '22px', fontFamily: CONFIG.FONT_FAMILY,
                 color: '#FFD700', fontStyle: 'bold',
-                stroke: '#000000', strokeThickness: 2,
-            }).setOrigin(0.5, 0).setDepth(3);
+                stroke: '#000000', strokeThickness: 3,
+            }).setOrigin(1, 0.5).setDepth(5).setVisible(false);
+
+            const chargeRateBolt = this.add.image(sx + 2, slotAboveY - ssz / 2 - 10, 'bolt')
+                .setDisplaySize(24, 24).setOrigin(0, 0.5).setDepth(5).setVisible(false);
 
             this.platforms.push({
                 index: i,
                 centerY: cy,
-                stripe,
-                slotX: sx, slotY: cy, slotSize: ssz,
-                slotBg, slotBgFilled, slotLabel,
+                stripe, chargeFill,
+                slotX: sx, slotY: slotAboveY, slotSize: ssz,
+                slotBg, slotBgFilled,
+                chargeRateText, chargeRateBolt,
                 batterySprite: null, batteryLevelText: null,
-                gadgetX: P.GADGET_X,
+                gadgetX: P.GADGET_X, gadgetAboveY,
                 gadgetSprite: null,
                 gadgetCapacity: 0, gadgetCurrentCharge: 0,
-                gadgetCapacityText: null,
-                gadgetChargeBarBg: null, gadgetChargeBarFill: null,
-                gadgetChargeText: null,
-                gadgetChargeBarY: 0,
-                gadgetChargeBarW: P.CHARGE_BAR_WIDTH,
-                gadgetChargeBarH: P.CHARGE_BAR_HEIGHT,
+                gadgetCapacityText: null, gadgetChargeText: null,
                 isDefeated: false,
             });
         }
@@ -173,16 +179,13 @@ class GameScene extends Phaser.Scene {
         this.clearGadgets();
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
-            const p   = this.platforms[i];
-            const cy  = p.centerY;
-            const gx  = P.GADGET_X;
-            const gsz = P.GADGET_SIZE;
+            const p        = this.platforms[i];
+            const gx       = P.GADGET_X;
+            const gsz      = P.GADGET_SIZE;
+            const gy       = p.gadgetAboveY;   // sits above the stripe
             const capacity = gadgetData.capacity[i];
-            const barW = P.CHARGE_BAR_WIDTH;
-            const barH = P.CHARGE_BAR_HEIGHT;
-            const barY = cy + gsz / 2 + barH / 2 + 8;
 
-            const capText = this.add.text(gx, cy - gsz / 2 - 12, `${capacity}`, {
+            const capText = this.add.text(gx, gy - gsz / 2 - 10, `${capacity}`, {
                 fontSize: '20px', fontFamily: CONFIG.FONT_FAMILY,
                 color: '#FFFFFF', fontStyle: 'bold',
                 stroke: '#000000', strokeThickness: 3,
@@ -190,44 +193,34 @@ class GameScene extends Phaser.Scene {
 
             const key = `gadget_${gadgetData.name}`;
             const gadgetSprite = this.textures.exists(key)
-                ? this.add.image(gx, cy, key)
-                : this.add.rectangle(gx, cy, gsz, gsz, 0x888888);
+                ? this.add.image(gx, gy, key)
+                : this.add.rectangle(gx, gy, gsz, gsz, 0x888888);
             if (gadgetSprite.setDisplaySize) gadgetSprite.setDisplaySize(gsz, gsz);
             gadgetSprite.setDepth(4);
 
-            const barBg = this.add.graphics();
-            barBg.fillStyle(0x333333, 0.8);
-            barBg.fillRoundedRect(gx - barW / 2, barY - barH / 2, barW, barH, barH / 2);
-            barBg.setDepth(4);
-
-            const barFill = this.add.graphics();
-            barFill.setDepth(5);
-
-            const chargeText = this.add.text(gx, barY + barH / 2 + 6, `0 / ${capacity}`, {
-                fontSize: '13px', fontFamily: CONFIG.FONT_FAMILY,
+            // Charge text sits centred on the stripe
+            const chargeText = this.add.text(gx, p.centerY, `0 / ${capacity}`, {
+                fontSize: '12px', fontFamily: CONFIG.FONT_FAMILY,
                 color: '#FFFFFF', stroke: '#000000', strokeThickness: 2,
-            }).setOrigin(0.5, 0).setDepth(5);
+            }).setOrigin(0.5, 0.5).setDepth(3.5);
 
-            p.gadgetSprite          = gadgetSprite;
-            p.gadgetCapacity        = capacity;
-            p.gadgetCurrentCharge   = 0;
-            p.gadgetCapacityText    = capText;
-            p.gadgetChargeBarBg     = barBg;
-            p.gadgetChargeBarFill   = barFill;
-            p.gadgetChargeText      = chargeText;
-            p.gadgetChargeBarY      = barY;
-            p.isDefeated            = false;
+            p.gadgetSprite        = gadgetSprite;
+            p.gadgetCapacity      = capacity;
+            p.gadgetCurrentCharge = 0;
+            p.gadgetCapacityText  = capText;
+            p.gadgetChargeText    = chargeText;
+            p.isDefeated          = false;
         }
     }
 
     clearGadgets() {
         for (const p of this.platforms) {
-            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeBarBg,
-             p.gadgetChargeBarFill, p.gadgetChargeText].forEach(o => { if (o) o.destroy(); });
-            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeBarBg =
-            p.gadgetChargeBarFill = p.gadgetChargeText = null;
+            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText]
+                .forEach(o => { if (o) o.destroy(); });
+            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText = null;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
+            if (p.chargeFill) { p.chargeFill.clear(); p.chargeFill.setAlpha(1); }
         }
     }
 
@@ -240,46 +233,57 @@ class GameScene extends Phaser.Scene {
         const yOff  = CONFIG.CELL.BATTERY_Y_OFFSET;
         const tOff  = CONFIG.CELL.LEVEL_TEXT_Y_OFFSET;
 
+        // Transparent draggable overlay that covers the whole slot cell —
+        // gives a reliable pick-up region independent of sprite texture.
+        const draggableBg = this.add.rectangle(
+            p.slotX, p.slotY, p.slotSize, p.slotSize, 0xFFFFFF, 0)
+            .setDepth(10)
+            .setInteractive({ draggable: true, useHandCursor: true });
+
         const batterySprite = this.add.image(p.slotX, p.slotY + yOff, `battery${batteryIconLevel}`);
         batterySprite.setDisplaySize(CONFIG.CELL.BATTERY_DISPLAY_SIZE, CONFIG.CELL.BATTERY_DISPLAY_SIZE);
-        batterySprite.setDepth(6);
-        batterySprite.setInteractive({
-            hitArea: new Phaser.Geom.Rectangle(-65, -65, 130, 130),
-            hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-            draggable: true, useHandCursor: true,
-        });
+        batterySprite.setDepth(11);
 
         const levelText = this.add.text(p.slotX, p.slotY + yOff + tOff, `LVL ${level}`, {
             fontSize: CONFIG.CELL.LEVEL_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
             color: CONFIG.CELL.LEVEL_TEXT_COLOR, fontStyle: 'bold',
-        }).setOrigin(0.5).setDepth(7);
+        }).setOrigin(0.5).setDepth(12);
 
         p.slotBg.setVisible(false);
         p.slotBgFilled.setVisible(true);
         p.batterySprite    = batterySprite;
         p.batteryLevelText = levelText;
 
+        // Show charge-rate label above the slot
+        p.chargeRateText.setText(`${chargePerMinute}`).setVisible(true);
+        p.chargeRateBolt.setVisible(true);
+
         const batteryData = {
             sprite: batterySprite, levelText,
-            draggableBg: null, level,
+            draggableBg, level,
             slotIndex,
             originalX: p.slotX,
             originalY: p.slotY + yOff,
             inGrid: false, inChargingSlot: true,
         };
-        batterySprite.setData('batteryData', batteryData);
+        draggableBg.setData('batteryData', batteryData);
         this.chargingSlots[slotIndex] = { level, chargePerMinute, batteryData };
     }
 
     removeBatteryFromSlot(slotIndex) {
         if (slotIndex < 0 || slotIndex >= 3) return;
         if (!this.chargingSlots[slotIndex]) return;
-        const p = this.platforms[slotIndex];
+        const slot = this.chargingSlots[slotIndex];
+        const bd   = slot.batteryData;
+        const p    = this.platforms[slotIndex];
+        if (bd && bd.draggableBg) { bd.draggableBg.destroy(); bd.draggableBg = null; }
         if (p.batterySprite)    p.batterySprite.destroy();
         if (p.batteryLevelText) p.batteryLevelText.destroy();
         p.batterySprite = p.batteryLevelText = null;
         p.slotBg.setVisible(true);
         p.slotBgFilled.setVisible(false);
+        p.chargeRateText.setVisible(false);
+        p.chargeRateBolt.setVisible(false);
         this.chargingSlots[slotIndex] = null;
     }
 
@@ -313,16 +317,14 @@ class GameScene extends Phaser.Scene {
     }
 
     updateGadgetChargeBar(p) {
-        if (!p.gadgetChargeBarFill) return;
+        const P = CONFIG.PLATFORM;
         const progress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
-        const barX = p.gadgetX - p.gadgetChargeBarW / 2;
-        const barY = p.gadgetChargeBarY - p.gadgetChargeBarH / 2;
         const color = progress < 0.5 ? 0x00E676 : progress < 0.8 ? 0xFFD600 : 0xFF5252;
-        p.gadgetChargeBarFill.clear();
-        p.gadgetChargeBarFill.fillStyle(color, 1);
-        p.gadgetChargeBarFill.fillRoundedRect(
-            barX, barY, p.gadgetChargeBarW * progress, p.gadgetChargeBarH,
-            p.gadgetChargeBarH / 2);
+        p.chargeFill.clear();
+        p.chargeFill.fillStyle(color, 0.85);
+        p.chargeFill.fillRoundedRect(
+            P.STRIPE_X, p.centerY - P.STRIPE_HEIGHT / 2,
+            P.STRIPE_WIDTH * progress, P.STRIPE_HEIGHT, 6);
         if (p.gadgetChargeText) {
             p.gadgetChargeText.setText(`${Math.floor(p.gadgetCurrentCharge)} / ${p.gadgetCapacity}`);
         }
@@ -350,17 +352,18 @@ class GameScene extends Phaser.Scene {
         });
 
         // Fade supporting UI
-        const toFade = [p.gadgetCapacityText, p.gadgetChargeBarBg,
-                        p.gadgetChargeBarFill, p.gadgetChargeText].filter(Boolean);
+        const toFade = [p.gadgetCapacityText, p.gadgetChargeText].filter(Boolean);
         if (toFade.length) {
             this.tweens.add({
                 targets: toFade, alpha: 0, duration: 350,
                 onComplete: () => {
                     toFade.forEach(o => o.destroy());
-                    p.gadgetCapacityText = p.gadgetChargeBarBg =
-                    p.gadgetChargeBarFill = p.gadgetChargeText = null;
+                    p.gadgetCapacityText = p.gadgetChargeText = null;
                 },
             });
+        }
+        if (p.chargeFill) {
+            this.tweens.add({ targets: p.chargeFill, alpha: 0, duration: 350 });
         }
 
         this.time.delayedCall(350, () => this.checkAllDefeated());
@@ -789,6 +792,8 @@ class GameScene extends Phaser.Scene {
             this.chargingSlots[bd.slotIndex] = null;
             p.slotBg.setVisible(true);
             p.slotBgFilled.setVisible(false);
+            p.chargeRateText.setVisible(false);
+            p.chargeRateBolt.setVisible(false);
             p.batterySprite = p.batteryLevelText = null;
         }
         if (bd.draggableBg) bd.draggableBg.setDepth(10000);
@@ -932,7 +937,10 @@ class GameScene extends Phaser.Scene {
             this.chargingSlots[oldSI] = null;
             oldP.slotBg.setVisible(true);
             oldP.slotBgFilled.setVisible(false);
+            oldP.chargeRateText.setVisible(false);
+            oldP.chargeRateBolt.setVisible(false);
             oldP.batterySprite = oldP.batteryLevelText = null;
+            if (bd.draggableBg) { bd.draggableBg.destroy(); bd.draggableBg = null; }
             if (bd.sprite)    bd.sprite.destroy();
             if (bd.levelText) bd.levelText.destroy();
         }
@@ -948,6 +956,9 @@ class GameScene extends Phaser.Scene {
             this.chargingSlots[slotIndex] = null;
             p2.slotBg.setVisible(true);
             p2.slotBgFilled.setVisible(false);
+            p2.chargeRateText.setVisible(false);
+            p2.chargeRateBolt.setVisible(false);
+            if (b2.draggableBg) { b2.draggableBg.destroy(); b2.draggableBg = null; }
             if (b2.sprite)    b2.sprite.destroy();
             if (b2.levelText) b2.levelText.destroy();
             p2.batterySprite = p2.batteryLevelText = null;
@@ -957,6 +968,7 @@ class GameScene extends Phaser.Scene {
             const si1 = b1.slotIndex, si2 = slotIndex;
             const lv1 = b1.level, lv2 = b2.level;
             [b1, b2].forEach(b => {
+                if (b.draggableBg) { b.draggableBg.destroy(); b.draggableBg = null; }
                 if (b.sprite)    b.sprite.destroy();
                 if (b.levelText) b.levelText.destroy();
             });
@@ -966,6 +978,8 @@ class GameScene extends Phaser.Scene {
             p2.batterySprite = p2.batteryLevelText = null;
             p1.slotBg.setVisible(true); p1.slotBgFilled.setVisible(false);
             p2.slotBg.setVisible(true); p2.slotBgFilled.setVisible(false);
+            p1.chargeRateText.setVisible(false); p1.chargeRateBolt.setVisible(false);
+            p2.chargeRateText.setVisible(false); p2.chargeRateBolt.setVisible(false);
             this.addBatteryToSlot(si1, lv2);
             this.addBatteryToSlot(si2, lv1);
         }
@@ -979,17 +993,21 @@ class GameScene extends Phaser.Scene {
             const si = dragged.slotIndex;
             const op = this.platforms[si];
             this.chargingSlots[si] = null;
+            if (dragged.draggableBg) { dragged.draggableBg.destroy(); dragged.draggableBg = null; }
             if (dragged.sprite)    dragged.sprite.destroy();
             if (dragged.levelText) dragged.levelText.destroy();
             op.batterySprite = op.batteryLevelText = null;
             op.slotBg.setVisible(true); op.slotBgFilled.setVisible(false);
+            op.chargeRateText.setVisible(false); op.chargeRateBolt.setVisible(false);
         }
         const tp = this.platforms[targetSlotIndex];
         this.chargingSlots[targetSlotIndex] = null;
+        if (target.draggableBg) { target.draggableBg.destroy(); target.draggableBg = null; }
         if (target.sprite)    target.sprite.destroy();
         if (target.levelText) target.levelText.destroy();
         tp.batterySprite = tp.batteryLevelText = null;
         tp.slotBg.setVisible(true); tp.slotBgFilled.setVisible(false);
+        tp.chargeRateText.setVisible(false); tp.chargeRateBolt.setVisible(false);
 
         const newLevel = target.level + 1;
         this.addBatteryToSlot(targetSlotIndex, newLevel);
@@ -1022,6 +1040,8 @@ class GameScene extends Phaser.Scene {
             p.slotBgFilled.setVisible(true);
             p.batterySprite    = bd.sprite;
             p.batteryLevelText = bd.levelText;
+            p.chargeRateText.setText(`${cpm}`).setVisible(true);
+            p.chargeRateBolt.setVisible(true);
         }
 
         if (bd.inGrid) {
@@ -1097,6 +1117,7 @@ class GameScene extends Phaser.Scene {
                 if (slot.batteryData) slot.batteryData.level = slot.level;
                 if (p.batterySprite)    p.batterySprite.setTexture(`battery${getBatteryIconLevel(slot.level)}`);
                 if (p.batteryLevelText) p.batteryLevelText.setText(`LVL ${slot.level}`);
+                p.chargeRateText.setText(`${slot.chargePerMinute}`);
             }
         }
         this.updateSpawnButton();
