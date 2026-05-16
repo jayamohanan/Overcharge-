@@ -175,6 +175,103 @@ class GameScene extends Phaser.Scene {
             size - inset * 2, size - inset * 2, Math.max(1, r - inset));
     }
 
+    // ── Analog meter face (static background drawn once per gadget load) ──────
+    _drawMeterBg(gfx, px, py) {
+        const P     = CONFIG.PLATFORM;
+        const r     = P.METER_RADIUS;
+        // meter angle m (0-180) → canvas arc angle in radians
+        // 0 → π (left), 90 → 3π/2 (up), 180 → 2π (right)
+        const arcOf = (m) => Math.PI + (m / 180) * Math.PI;
+        const cos = Math.cos, sin = Math.sin;
+
+        // Filled dark bezel (half-disc)
+        gfx.fillStyle(0x0d1a26, 0.95);
+        gfx.beginPath();
+        gfx.arc(px, py, r, Math.PI, 2 * Math.PI, false);
+        gfx.lineTo(px, py);
+        gfx.closePath();
+        gfx.fillPath();
+
+        // Outer border
+        gfx.lineStyle(2, 0x4a6a8a, 1.0);
+        gfx.beginPath();
+        gfx.arc(px, py, r, Math.PI, 2 * Math.PI, false);
+        gfx.closePath();
+        gfx.strokePath();
+
+        // Coloured zone arcs (just inside the outer arc)
+        const zr = r - 8;
+        const greenEnd = 100;
+        gfx.lineStyle(5, 0x00C853, 1.0);
+        gfx.beginPath();
+        gfx.arc(px, py, zr, arcOf(0), arcOf(greenEnd), false);
+        gfx.strokePath();
+
+        gfx.lineStyle(5, 0xFFD600, 1.0);
+        gfx.beginPath();
+        gfx.arc(px, py, zr, arcOf(greenEnd), arcOf(P.METER_RED_ZONE_ANGLE), false);
+        gfx.strokePath();
+
+        gfx.lineStyle(5, 0xFF1744, 1.0);
+        gfx.beginPath();
+        gfx.arc(px, py, zr, arcOf(P.METER_RED_ZONE_ANGLE), arcOf(180), false);
+        gfx.strokePath();
+
+        // Tick marks every 30°
+        for (let m = 0; m <= 180; m += 30) {
+            const a    = arcOf(m);
+            const long = m % 90 === 0;
+            gfx.lineStyle(long ? 2 : 1.5, 0xCCCCCC, 0.9);
+            gfx.lineBetween(
+                px + (r - (long ? 13 : 8)) * cos(a), py + (r - (long ? 13 : 8)) * sin(a),
+                px + (r - 2) * cos(a),                py + (r - 2) * sin(a));
+        }
+
+        // Explosion marker at METER_EXPLOSION_ANGLE
+        const ea = arcOf(P.METER_EXPLOSION_ANGLE);
+        gfx.lineStyle(2.5, 0xFF6600, 1.0);
+        gfx.lineBetween(
+            px + (r - 14) * cos(ea), py + (r - 14) * sin(ea),
+            px + (r - 1)  * cos(ea), py + (r - 1)  * sin(ea));
+
+        // Small inner accent circle at pivot
+        gfx.lineStyle(1, 0x4a6a8a, 0.6);
+        gfx.strokeCircle(px, py, r * 0.28);
+    }
+
+    // ── Animate needle with analog overshoot/undershoot swing ────────────────
+    _animateMeterNeedle(p, meterTargetAngle) {
+        if (!p.meterNeedle) return;
+        const P        = CONFIG.PLATFORM;
+        const overshoot = P.METER_OSCILLATION_OVERSHOOT;
+        const needle   = p.meterNeedle;
+        this.tweens.killTweensOf(needle);
+
+        // meterAngle (0-180) → Phaser setAngle degrees
+        // needle origin is (0.5, 1) pointing UP at angle 0
+        // so: 0 → -90 (left), 90 → 0 (up), 180 → +90 (right)
+        const ph = (m) => m - 90;
+
+        const tA     = ph(meterTargetAngle);
+        const overA  = ph(Math.min(meterTargetAngle + overshoot,       180));
+        const underA = ph(Math.max(meterTargetAngle - overshoot * 0.45,  0));
+
+        this.tweens.add({
+            targets: needle, angle: overA, duration: 175, ease: 'Quad.easeOut',
+            onComplete: () => this.tweens.add({
+                targets: needle, angle: underA, duration: 130, ease: 'Quad.easeOut',
+                onComplete: () => this.tweens.add({
+                    targets: needle, angle: tA, duration: 85, ease: 'Sine.easeOut',
+                })
+            })
+        });
+
+        // Needle colour tracks zone
+        const inRed    = meterTargetAngle >= P.METER_RED_ZONE_ANGLE;
+        const inYellow = !inRed && meterTargetAngle >= 100;
+        needle.setFillStyle(inRed ? 0xFF3333 : inYellow ? 0xFFD600 : 0xF0F0F0);
+    }
+
     loadGadgets(gadgetData) {
         this.clearGadgets();
         const P = CONFIG.PLATFORM;
@@ -186,8 +283,8 @@ class GameScene extends Phaser.Scene {
             const capacity = gadgetData.capacity[i];
 
             const capText = this.add.text(gx, gy - gsz / 2 - 10, `${capacity}`, {
-                fontSize: '20px', fontFamily: CONFIG.FONT_FAMILY,
-                color: '#FFFFFF', fontStyle: 'bold',
+                fontSize: '18px', fontFamily: CONFIG.FONT_FAMILY,
+                color: '#AADDFF', fontStyle: 'bold',
                 stroke: '#000000', strokeThickness: 3,
             }).setOrigin(0.5, 1).setDepth(5);
 
@@ -210,14 +307,36 @@ class GameScene extends Phaser.Scene {
             p.gadgetCapacityText  = capText;
             p.gadgetChargeText    = chargeText;
             p.isDefeated          = false;
+
+            // ── Analog meter ──────────────────────────────────────────────────
+            const mpx = P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS;
+            const mpy = gy + gsz / 2;  // flat base sits at gadget-bottom / stripe-top
+
+            const meterBg = this.add.graphics().setDepth(4.2);
+            this._drawMeterBg(meterBg, mpx, mpy);
+
+            // Needle: thin rect, origin at pivot (bottom-centre), initial angle -90 = far-left
+            const meterNeedle = this.add.rectangle(
+                mpx, mpy, 3, P.METER_RADIUS - 10, 0xF0F0F0)
+                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6);
+
+            // Pivot dot on top of everything
+            const meterPivot = this.add.circle(mpx, mpy, 5, 0x223344).setDepth(4.8);
+
+            p.meterBg     = meterBg;
+            p.meterNeedle = meterNeedle;
+            p.meterPivot  = meterPivot;
         }
     }
 
     clearGadgets() {
         for (const p of this.platforms) {
-            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText]
+            if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
+            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
+             p.meterBg, p.meterNeedle, p.meterPivot]
                 .forEach(o => { if (o) o.destroy(); });
-            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText = null;
+            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText =
+            p.meterBg = p.meterNeedle = p.meterPivot = null;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
             if (p.chargeFill) { p.chargeFill.clear(); p.chargeFill.setAlpha(1); }
@@ -328,6 +447,12 @@ class GameScene extends Phaser.Scene {
         if (p.gadgetChargeText) {
             p.gadgetChargeText.setText(`${Math.floor(p.gadgetCurrentCharge)} / ${p.gadgetCapacity}`);
         }
+        if (p.gadgetCapacityText) {
+            const remaining = Math.max(0, Math.ceil(p.gadgetCapacity - p.gadgetCurrentCharge));
+            p.gadgetCapacityText.setText(remaining > 0 ? `${remaining}` : '');
+            p.gadgetCapacityText.setAlpha(0.35 + 0.65 * (1 - progress));
+        }
+        this._animateMeterNeedle(p, progress * CONFIG.PLATFORM.METER_EXPLOSION_ANGLE);
     }
 
     explodeGadget(p) {
@@ -351,14 +476,17 @@ class GameScene extends Phaser.Scene {
             onComplete: () => burst.destroy(),
         });
 
-        // Fade supporting UI
-        const toFade = [p.gadgetCapacityText, p.gadgetChargeText].filter(Boolean);
+        // Fade supporting UI (including meter)
+        if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
+        const toFade = [p.gadgetCapacityText, p.gadgetChargeText,
+                        p.meterBg, p.meterNeedle, p.meterPivot].filter(Boolean);
         if (toFade.length) {
             this.tweens.add({
                 targets: toFade, alpha: 0, duration: 350,
                 onComplete: () => {
                     toFade.forEach(o => o.destroy());
-                    p.gadgetCapacityText = p.gadgetChargeText = null;
+                    p.gadgetCapacityText = p.gadgetChargeText =
+                    p.meterBg = p.meterNeedle = p.meterPivot = null;
                 },
             });
         }

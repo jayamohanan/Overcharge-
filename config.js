@@ -155,10 +155,15 @@ var CONFIG = {
         SLOT_X: 210,          // battery slot — left side
         SLOT_SIZE: 130,
         SLOT_RADIUS: 15,
-        GADGET_X: 570,        // gadget — right side
-        GADGET_SIZE: 85,
-        CHARGE_BAR_WIDTH: 130,
-        CHARGE_BAR_HEIGHT: 10,
+        // ── Gadget sprite ────────────────────────────────────────────────────
+        GADGET_X: 490,        // horizontal centre of gadget sprite
+        GADGET_SIZE: 115,     // sprite display size (width = height)
+        // ── Analog meter (semi-circle to the right of the gadget) ────────────
+        METER_RADIUS: 62,           // radius of the meter arc in pixels
+        METER_GAP: 8,               // px gap from gadget right edge to meter arc start
+        METER_EXPLOSION_ANGLE: 170, // 0-180 scale; full charge = this angle
+        METER_RED_ZONE_ANGLE: 150,  // 0-180 scale; red zone begins here
+        METER_OSCILLATION_OVERSHOOT: 12, // degrees of needle swing past target per tick
     },
 };
 
