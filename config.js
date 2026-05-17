@@ -146,25 +146,59 @@ var CONFIG = {
 
         // Platform stripes (top half) with battery slot on left, gadget on right
     PLATFORM: {
-        Y_POSITIONS: [200, 390, 580],
-        STRIPE_X: 20,         // left edge of stripe (20px screen padding)
-        STRIPE_WIDTH: 680,    // full width minus padding (20 each side)
-        STRIPE_HEIGHT: 18,
+        Y_POSITIONS: [200, 390, 580],  // vertical centre Y of each platform stripe
+        STRIPE_X: 20,                  // left edge of stripe (px)
+        STRIPE_WIDTH: 680,             // full stripe width (px)
+        STRIPE_HEIGHT: 18,             // stripe height (px)
         STRIPE_COLOR: "#1e3a4a",
         STRIPE_ALPHA: 0.9,
-        SLOT_X: 210,          // battery slot — left side
-        SLOT_SIZE: 130,
-        SLOT_RADIUS: 15,
-        // ── Gadget sprite ────────────────────────────────────────────────────
-        GADGET_X: 490,        // horizontal centre of gadget sprite
-        GADGET_SIZE: 115,     // sprite display size (width = height)
-        // ── Analog meter (semi-circle to the right of the gadget) ────────────
-        METER_RADIUS: 62,           // radius of the meter arc in pixels
-        METER_GAP: 8,               // px gap from gadget right edge to meter arc start
-        METER_EXPLOSION_ANGLE: 170, // 0-180 scale; full charge = this angle
-        METER_RED_ZONE_ANGLE: 150,  // 0-180 scale; red zone begins here
-        METER_OSCILLATION_OVERSHOOT: 12, // degrees of needle swing past target per tick
-        ELEMENT_BOTTOM_PADDING: 14, // px gap between stripe (base) top and bottom of slot/gadget/meter
+
+        // ── Battery slot ──────────────────────────────────────────────────────
+        SLOT_X: 210,                   // horizontal centre of battery slot (px)
+        SLOT_SIZE: 130,                // slot square size (px)
+        SLOT_RADIUS: 15,               // corner radius (px)
+        SLOT_ABOVE_STRIPE: 14,         // gap (px) between slot bottom and stripe top
+        CHARGE_RATE_GAP: 10,           // gap (px) between charge-rate label bottom and slot top
+
+        // ── Gadget sprite ──────────────────────────────────────────────────────
+        GADGET_X: 490,                 // horizontal centre of gadget sprite (px)
+        GADGET_SIZE: 115,              // display size — square (px)
+        GADGET_ABOVE_STRIPE: 14,       // gap (px) between gadget bottom and stripe top
+        CAPACITY_TEXT_GAP: 10,         // gap (px) between capacity label bottom and gadget top
+
+        // ── Analog meter ──────────────────────────────────────────────────────
+        METER_GAP: 8,                  // gap from gadget right edge to meter arc (px)
+        METER_Y_OFFSET: 0,             // meter pivot Y offset from gadget bottom (positive = down)
+        METER_RADIUS: 62,              // arc radius (px)
+        METER_EXPLOSION_ANGLE: 170,    // needle angle (0-180) at full charge
+        METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
+        METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
+
+        // ── Smoke effect ──────────────────────────────────────────────────────
+        SMOKE_START_PROGRESS: 0.80,    // 0-1 charge fraction at which smoke begins
+        SMOKE_FREQUENCY_START_MS: 600,  // ms between puffs when smoke first appears (sparse)
+        SMOKE_FREQUENCY_MAX_MS: 80,     // ms between puffs at peak / just after explosion (dense)
+        SMOKE_FREQUENCY_IDLE_MS: 450,   // ms between puffs after post-explosion burst (low idle)
+        SMOKE_MAX_AFTER_EXPLOSION_MS: 3000, // ms to sustain max smoke after burnout
+        SMOKE_LIFESPAN_MS: 1200,       // ms each puff lasts
+        SMOKE_RADIUS_MIN: 3,           // min puff radius (px)
+        SMOKE_RADIUS_MAX: 8,           // max puff radius (px)
+        SMOKE_SPREAD_X: 20,            // horizontal spawn spread around gadget centre (px)
+        SMOKE_DRIFT_Y: 55,             // how far upward each puff drifts (px)
+        SMOKE_COLOR: 0x999999,         // puff color
+
+        // ── Wire connection ────────────────────────────────────────────────────
+        SOCKET_GAP_RIGHT: 20,          // gap (px) from slot right edge to socket centre
+        SOCKET_SIZE: 40,               // socket sprite display size (px)
+        PLUG_SIZE: 28,                 // plug sprite display size (px)
+        WIRE_SAG_PERCENT: 170,         // wire length as % of straight-line distance (>100 = sag)
+        WIRE_RIGID_LENGTH: 6,         // px of vertical rigid segment at plug/socket end before sag
+        WIRE_THICKNESS: 5,             // wire line thickness (px)
+        WIRE_COLOR: 0x46464a,          // wire color
+
+        // ── Explosion ────────────────────────────────────────────────────────
+        EXPLODE_SHAKE_DURATION: 350,   // ms of camera shake on gadget burnout
+        EXPLODE_SHAKE_INTENSITY: 0.018, // shake magnitude (0–1 scale)
     },
 };
 

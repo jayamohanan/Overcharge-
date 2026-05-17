@@ -1,9 +1,9 @@
 {
   "gadgets": [
-    {"name": "radio",  "sprite": "radio.png",  "capacity": [20,  30,  50]},
-    {"name": "phone",  "sprite": "phone.png",  "capacity": [40,  60,  80]},
-    {"name": "laptop", "sprite": "laptop.png", "capacity": [80,  100, 120]},
-    {"name": "tablet", "sprite": "tablet.png", "capacity": [150, 180, 220]},
-    {"name": "camera", "sprite": "camera.png", "capacity": [200, 250, 300]}
+    {"name": "radio",  "normal_sprite": "radio.png", "burnedout_sprite": "radio_burnedout.png",  "capacity": [20,  30,  50], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "phone",  "normal_sprite": "phone.png", "burnedout_sprite": "phone_burnedout.png",  "capacity": [40,  60,  80], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "laptop", "normal_sprite": "laptop.png", "burnedout_sprite": "laptop_burnedout.png", "capacity": [80,  100, 120], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "tablet", "normal_sprite": "tablet.png", "burnedout_sprite": "tablet_burnedout.png", "capacity": [150, 180, 220], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "camera", "normal_sprite": "camera.png", "burnedout_sprite": "camera_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1}
   ]
 }
