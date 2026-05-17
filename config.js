@@ -164,6 +164,7 @@ var CONFIG = {
         METER_EXPLOSION_ANGLE: 170, // 0-180 scale; full charge = this angle
         METER_RED_ZONE_ANGLE: 150,  // 0-180 scale; red zone begins here
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of needle swing past target per tick
+        ELEMENT_BOTTOM_PADDING: 14, // px gap between stripe (base) top and bottom of slot/gadget/meter
     },
 };
 

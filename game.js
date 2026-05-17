@@ -112,9 +112,9 @@ class GameScene extends Phaser.Scene {
             const sx  = P.SLOT_X;
             const ssz = P.SLOT_SIZE;
 
-            // Items sit ON TOP of the stripe: bottom edge == stripe top edge
-            const slotAboveY   = cy - P.STRIPE_HEIGHT / 2 - ssz / 2;
-            const gadgetAboveY = cy - P.STRIPE_HEIGHT / 2 - P.GADGET_SIZE / 2;
+            // Items sit ON TOP of the stripe with a bottom padding gap
+            const slotAboveY   = cy - P.STRIPE_HEIGHT / 2 - ssz / 2 - P.ELEMENT_BOTTOM_PADDING;
+            const gadgetAboveY = cy - P.STRIPE_HEIGHT / 2 - P.GADGET_SIZE / 2 - P.ELEMENT_BOTTOM_PADDING;
 
             // Stripe background
             const stripe = this.add.graphics();
@@ -180,63 +180,25 @@ class GameScene extends Phaser.Scene {
         const P     = CONFIG.PLATFORM;
         const r     = P.METER_RADIUS;
         // meter angle m (0-180) → canvas arc angle in radians
-        // 0 → π (left), 90 → 3π/2 (up), 180 → 2π (right)
         const arcOf = (m) => Math.PI + (m / 180) * Math.PI;
-        const cos = Math.cos, sin = Math.sin;
 
-        // Filled dark bezel (half-disc)
-        gfx.fillStyle(0x0d1a26, 0.95);
-        gfx.beginPath();
-        gfx.arc(px, py, r, Math.PI, 2 * Math.PI, false);
-        gfx.lineTo(px, py);
-        gfx.closePath();
-        gfx.fillPath();
-
-        // Outer border
-        gfx.lineStyle(2, 0x4a6a8a, 1.0);
-        gfx.beginPath();
-        gfx.arc(px, py, r, Math.PI, 2 * Math.PI, false);
-        gfx.closePath();
-        gfx.strokePath();
-
-        // Coloured zone arcs (just inside the outer arc)
-        const zr = r - 8;
+        // Coloured zone arcs (thick arc, no fill, no ticks, no inner circle)
+        const zr = r - 4;
         const greenEnd = 100;
-        gfx.lineStyle(5, 0x00C853, 1.0);
+        gfx.lineStyle(6, 0x00C853, 1.0);
         gfx.beginPath();
         gfx.arc(px, py, zr, arcOf(0), arcOf(greenEnd), false);
         gfx.strokePath();
 
-        gfx.lineStyle(5, 0xFFD600, 1.0);
+        gfx.lineStyle(6, 0xFFD600, 1.0);
         gfx.beginPath();
         gfx.arc(px, py, zr, arcOf(greenEnd), arcOf(P.METER_RED_ZONE_ANGLE), false);
         gfx.strokePath();
 
-        gfx.lineStyle(5, 0xFF1744, 1.0);
+        gfx.lineStyle(6, 0xFF1744, 1.0);
         gfx.beginPath();
         gfx.arc(px, py, zr, arcOf(P.METER_RED_ZONE_ANGLE), arcOf(180), false);
         gfx.strokePath();
-
-        // Tick marks every 30°
-        for (let m = 0; m <= 180; m += 30) {
-            const a    = arcOf(m);
-            const long = m % 90 === 0;
-            gfx.lineStyle(long ? 2 : 1.5, 0xCCCCCC, 0.9);
-            gfx.lineBetween(
-                px + (r - (long ? 13 : 8)) * cos(a), py + (r - (long ? 13 : 8)) * sin(a),
-                px + (r - 2) * cos(a),                py + (r - 2) * sin(a));
-        }
-
-        // Explosion marker at METER_EXPLOSION_ANGLE
-        const ea = arcOf(P.METER_EXPLOSION_ANGLE);
-        gfx.lineStyle(2.5, 0xFF6600, 1.0);
-        gfx.lineBetween(
-            px + (r - 14) * cos(ea), py + (r - 14) * sin(ea),
-            px + (r - 1)  * cos(ea), py + (r - 1)  * sin(ea));
-
-        // Small inner accent circle at pivot
-        gfx.lineStyle(1, 0x4a6a8a, 0.6);
-        gfx.strokeCircle(px, py, r * 0.28);
     }
 
     // ── Animate needle with analog overshoot/undershoot swing ────────────────
@@ -292,7 +254,7 @@ class GameScene extends Phaser.Scene {
             const gadgetSprite = this.textures.exists(key)
                 ? this.add.image(gx, gy, key)
                 : this.add.rectangle(gx, gy, gsz, gsz, 0x888888);
-            if (gadgetSprite.setDisplaySize) gadgetSprite.setDisplaySize(gsz, gsz);
+            gadgetSprite.setDisplaySize(gsz, gsz);
             gadgetSprite.setDepth(4);
 
             // Charge text sits centred on the stripe
@@ -438,12 +400,6 @@ class GameScene extends Phaser.Scene {
     updateGadgetChargeBar(p) {
         const P = CONFIG.PLATFORM;
         const progress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
-        const color = progress < 0.5 ? 0x00E676 : progress < 0.8 ? 0xFFD600 : 0xFF5252;
-        p.chargeFill.clear();
-        p.chargeFill.fillStyle(color, 0.85);
-        p.chargeFill.fillRoundedRect(
-            P.STRIPE_X, p.centerY - P.STRIPE_HEIGHT / 2,
-            P.STRIPE_WIDTH * progress, P.STRIPE_HEIGHT, 6);
         if (p.gadgetChargeText) {
             p.gadgetChargeText.setText(`${Math.floor(p.gadgetCurrentCharge)} / ${p.gadgetCapacity}`);
         }
