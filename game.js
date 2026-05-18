@@ -160,6 +160,8 @@ class GameScene extends Phaser.Scene {
                 gadgetCapacity: 0, gadgetCurrentCharge: 0,
                 gadgetCapacityText: null, gadgetChargeText: null,
                 isDefeated: false,
+                smokePuffs: [],        // Track smoke particle objects
+                explosionEffects: [],  // Track explosion ring objects
             });
         }
     }
@@ -474,6 +476,9 @@ class GameScene extends Phaser.Scene {
         const sx = ox + (Math.random() - 0.5) * P.SMOKE_SPREAD_X;
         const puff = this.add.circle(sx, oy, r, P.SMOKE_COLOR, alpha).setDepth(25);
         
+        // Track this smoke puff for cleanup
+        if (p.smokePuffs) p.smokePuffs.push(puff);
+        
         const lifespan = isPostExplosion ? 1800 : P.SMOKE_LIFESPAN_MS;  // Longer lasting after explosion
         
         this.tweens.add({
@@ -485,8 +490,39 @@ class GameScene extends Phaser.Scene {
             scaleY: isPostExplosion ? 2.8 : 2.2,
             duration: lifespan,
             ease: 'Sine.easeOut',
-            onComplete: () => puff.destroy(),
+            onComplete: () => {
+                // Remove from tracking array
+                if (p.smokePuffs) {
+                    const idx = p.smokePuffs.indexOf(puff);
+                    if (idx > -1) p.smokePuffs.splice(idx, 1);
+                }
+                puff.destroy();
+            },
         });
+    }
+
+    /**
+     * Calculate display dimensions to fit sprite to target size while preserving aspect ratio.
+     * Scales the largest side to targetSize and adjusts the other side proportionally.
+     * 
+     * @param {Phaser.Textures.Texture} texture - The sprite texture
+     * @param {number} targetSize - The target size for the largest dimension
+     * @returns {{width: number, height: number}} - Display width and height
+     */
+    _getAspectFitSize(texture, targetSize) {
+        const frame = texture.get();
+        const srcWidth = frame.width;
+        const srcHeight = frame.height;
+        
+        // Find the largest side and calculate scale factor
+        const maxSide = Math.max(srcWidth, srcHeight);
+        const scale = targetSize / maxSide;
+        
+        // Apply scale to both dimensions to preserve aspect ratio
+        return {
+            width: srcWidth * scale,
+            height: srcHeight * scale
+        };
     }
 
     loadGadgets(gadgetData) {
@@ -509,7 +545,14 @@ class GameScene extends Phaser.Scene {
             const gadgetSprite = this.textures.exists(normalKey)
                 ? this.add.image(gx, gy, normalKey)
                 : this.add.rectangle(gx, gy, gsz, gsz, 0x888888);
-            gadgetSprite.setDisplaySize(gsz, gsz);
+            
+            // Apply aspect-ratio-preserving scaling
+            if (this.textures.exists(normalKey)) {
+                const size = this._getAspectFitSize(this.textures.get(normalKey), gsz);
+                gadgetSprite.setDisplaySize(size.width, size.height);
+            } else {
+                gadgetSprite.setDisplaySize(gsz, gsz);
+            }
             gadgetSprite.setDepth(4);
 
             p.gadgetSprite        = gadgetSprite;
@@ -524,6 +567,8 @@ class GameScene extends Phaser.Scene {
             p._shakeActive        = false;
             p._pulseActive        = false;
             p.smokeTimer          = null;
+            p.smokePuffs          = [];  // Reset tracking arrays for new gadget
+            p.explosionEffects    = [];
 
             // ── Wire connection ────────────────────────────────────────────────
             const socketX    = P.SLOT_X + P.SLOT_SIZE / 2 + P.SOCKET_GAP_RIGHT;
@@ -579,6 +624,29 @@ class GameScene extends Phaser.Scene {
     clearGadgets() {
         for (const p of this.platforms) {
             this._stopSmoke(p);
+            
+            // Clean up all smoke puffs and their tweens
+            if (p.smokePuffs) {
+                for (const puff of p.smokePuffs) {
+                    if (puff && puff.scene) {
+                        this.tweens.killTweensOf(puff);
+                        puff.destroy();
+                    }
+                }
+                p.smokePuffs = [];
+            }
+            
+            // Clean up all explosion effects and their tweens
+            if (p.explosionEffects) {
+                for (const effect of p.explosionEffects) {
+                    if (effect && effect.scene) {
+                        this.tweens.killTweensOf(effect);
+                        effect.destroy();
+                    }
+                }
+                p.explosionEffects = [];
+            }
+            
             if (p.gadgetSprite) this.tweens.killTweensOf(p.gadgetSprite);
             if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
@@ -735,7 +803,13 @@ class GameScene extends Phaser.Scene {
                         p.gadgetSprite.setTexture(burnedKey);
                         p.gadgetSprite.setTint(0xffffff);
                         p.gadgetSprite.setScale(1);
-                        p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                        // Apply aspect-ratio-preserving scaling for burned out sprite
+                        if (this.textures.exists(burnedKey)) {
+                            const size = this._getAspectFitSize(this.textures.get(burnedKey), P.GADGET_SIZE);
+                            p.gadgetSprite.setDisplaySize(size.width, size.height);
+                        } else {
+                            p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                        }
                         p.gadgetSprite.setAlpha(1);
                         p.isDefeated = true;
                         p._shakeActive = false;
@@ -749,16 +823,26 @@ class GameScene extends Phaser.Scene {
                         
                         for (let i = 0; i < numRings; i++) {
                             const ring = this.add.circle(ex, ey, 8, colors[i], 0.95).setDepth(100); // Much higher depth
+                            // Track this explosion effect for cleanup
+                            if (p.explosionEffects) p.explosionEffects.push(ring);
                             const delay = i * 15; // Stagger the rings
                             
                             this.time.delayedCall(delay, () => {
+                                if (!ring.scene) return; // Already destroyed
                                 this.tweens.add({
                                     targets: ring,
                                     radius: maxRadius,
                                     alpha: 0,
                                     duration: 350,
                                     ease: 'Cubic.easeOut',
-                                    onComplete: () => ring.destroy()
+                                    onComplete: () => {
+                                        // Remove from tracking array
+                                        if (p.explosionEffects) {
+                                            const idx = p.explosionEffects.indexOf(ring);
+                                            if (idx > -1) p.explosionEffects.splice(idx, 1);
+                                        }
+                                        ring.destroy();
+                                    }
                                 });
                             });
                         }
@@ -829,7 +913,13 @@ class GameScene extends Phaser.Scene {
                 // Fallback: darken in place
                 p.gadgetSprite.setTint(0x444444);
                 p.gadgetSprite.setAlpha(1);
-                p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                // Apply aspect-ratio-preserving scaling
+                if (this.textures.exists(burnedKey)) {
+                    const size = this._getAspectFitSize(this.textures.get(burnedKey), P.GADGET_SIZE);
+                    p.gadgetSprite.setDisplaySize(size.width, size.height);
+                } else {
+                    p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                }
                 p.gadgetSprite.setPosition(ex, ey);
                 p.isDefeated = true;
                 p._shakeActive = false;
