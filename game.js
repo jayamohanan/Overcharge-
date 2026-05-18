@@ -276,7 +276,6 @@ class GameScene extends Phaser.Scene {
         const P            = CONFIG.PLATFORM;
         const progress     = p.gadgetCapacity > 0 ? p.gadgetCurrentCharge / p.gadgetCapacity : 0;
         const yellowThresh = 100 / P.METER_EXPLOSION_ANGLE;
-        const redThresh    = P.METER_RED_ZONE_ANGLE / P.METER_EXPLOSION_ANGLE;
 
         if (progress < yellowThresh) {
             // Normal range — clear any leftover tint, soft pulse on each charge tick
@@ -285,28 +284,32 @@ class GameScene extends Phaser.Scene {
             return;
         }
 
-        const inRed        = progress >= redThresh;
-        const redIntensity = inRed ? (progress - redThresh) / (1 - redThresh) : 0;
+        // Smooth tension progression from yellowThresh to 100%
+        const tensionProgress = (progress - yellowThresh) / (1 - yellowThresh);
 
-        // ── Tint: warm-yellow → orange → deep red ────────────────────────────
-        if (inRed) {
-            const g = Math.round(0x6B * (1 - redIntensity * 0.85));
-            p.gadgetSprite.setTint((0xFF << 16) | (g << 8));
-        } else {
-            p.gadgetSprite.setTint(0xFFCC44);
-        }
+        // ── Tint: smooth interpolation from white → subtle yellow → light orange ───
+        // Start: 0xFFFFFF (white), Mid: 0xFFDD99 (subtle warm), End: 0xFFBB77 (light orange)
+        const startR = 0xFF, startG = 0xFF, startB = 0xFF;
+        const endR   = 0xFF, endG   = 0xBB, endB   = 0x77;
+        
+        const r = Math.round(startR + (endR - startR) * tensionProgress);
+        const g = Math.round(startG + (endG - startG) * tensionProgress);
+        const b = Math.round(startB + (endB - startB) * tensionProgress);
+        p.gadgetSprite.setTint((r << 16) | (g << 8) | b);
 
-        // ── Flash (more violent in red zone) ─────────────────────────────────
-        const flashAlpha = inRed ? 0.15 : 0.35;
-        const flashDur   = inRed ? 45  : 70;
+        // ── Flash (subtle, increases with tension) ──────────────────────────────
+        const flashAlpha = 0.4 - tensionProgress * 0.25; // 0.4 → 0.15
+        const flashDur   = 80 - Math.round(tensionProgress * 35); // 80ms → 45ms
         this.tweens.add({ targets: p.gadgetSprite, alpha: flashAlpha, duration: flashDur, yoyo: true });
 
-        // ── Shake ─────────────────────────────────────────────────────────────
+        // ── Shake (increases gradually, maximum at end) ─────────────────────────
         if (!p._shakeActive) {
             p._shakeActive = true;
-            const shakeAmt = inRed ? 3 + redIntensity * 7 : 2;
-            const shakeDur = inRed ? Math.round(55 - redIntensity * 20) : 72;
-            const numSteps = inRed ? 6 : 4;
+            // Shake intensity: 0.75 at start → 5 at end (reduced by half)
+            const shakeAmt = 0.75 + tensionProgress * 4.25;
+            // Shake speed: slower at start, faster at end
+            const shakeDur = Math.round(75 - tensionProgress * 40); // 75ms → 35ms
+            const numSteps = 4 + Math.round(tensionProgress * 4); // 4 → 8 steps
             const ox = p._gadgetOriginX;
             const oy = p._gadgetOriginY;
 
@@ -347,10 +350,7 @@ class GameScene extends Phaser.Scene {
         //     });
         // }
 
-        // ── Camera shake in red zone ──────────────────────────────────────────
-        if (inRed) {
-            this.cameras.main.shake(75, 0.0015 + 0.003 * redIntensity);
-        }
+        // ── Camera shake removed - only happens at final explosion ──────────────
 
         // ── Smoke (ramps up with progress toward explosion) ─────────────────
         if (progress >= CONFIG.PLATFORM.SMOKE_START_PROGRESS) {
@@ -461,17 +461,29 @@ class GameScene extends Phaser.Scene {
     _spawnSmokePuff(p) {
         const P  = CONFIG.PLATFORM;
         const ox = p._gadgetOriginX;
-        const oy = p._gadgetOriginY - P.GADGET_SIZE / 2;  // top of gadget
-        const r  = P.SMOKE_RADIUS_MIN + Math.random() * (P.SMOKE_RADIUS_MAX - P.SMOKE_RADIUS_MIN);
+        const oy = p._gadgetOriginY;  // center of gadget
+        
+        // Check if we're in post-explosion burst mode (stronger smoke)
+        const isPostExplosion = p.isDefeated && p._smokeDelay === P.SMOKE_FREQUENCY_MAX_MS;
+        
+        const r  = isPostExplosion 
+            ? 6 + Math.random() * 8  // Much larger: 6-14px after explosion
+            : P.SMOKE_RADIUS_MIN + Math.random() * (P.SMOKE_RADIUS_MAX - P.SMOKE_RADIUS_MIN);
+        
+        const alpha = isPostExplosion ? 0.7 : 0.45;  // More opaque after explosion
         const sx = ox + (Math.random() - 0.5) * P.SMOKE_SPREAD_X;
-        const puff = this.add.circle(sx, oy, r, P.SMOKE_COLOR, 0.45).setDepth(25);
+        const puff = this.add.circle(sx, oy, r, P.SMOKE_COLOR, alpha).setDepth(25);
+        
+        const lifespan = isPostExplosion ? 1800 : P.SMOKE_LIFESPAN_MS;  // Longer lasting after explosion
+        
         this.tweens.add({
             targets: puff,
             y: oy - P.SMOKE_DRIFT_Y - Math.random() * 20,
             x: sx + (Math.random() - 0.5) * 16,
             alpha: 0,
-            scaleX: 2.2, scaleY: 2.2,
-            duration: P.SMOKE_LIFESPAN_MS,
+            scaleX: isPostExplosion ? 2.8 : 2.2,
+            scaleY: isPostExplosion ? 2.8 : 2.2,
+            duration: lifespan,
             ease: 'Sine.easeOut',
             onComplete: () => puff.destroy(),
         });
@@ -531,7 +543,8 @@ class GameScene extends Phaser.Scene {
 
             const wireGfx = this.add.graphics().setDepth(3.55);  // over socket, under plug & gadget
             // Wire: from bottom-centre of plug icon to gadget connection point
-            this._drawWire(wireGfx, socketX, socketY + P.PLUG_SIZE / 2, plugEndX, plugEndY);
+            // Extend wire upward by 6px to close gap with plug visual
+            this._drawWire(wireGfx, socketX, socketY + P.PLUG_SIZE / 2 - 6, plugEndX, plugEndY);
 
             const plugSprite = this.textures.exists('gadget_plug_in')
                 ? this.add.image(socketX, socketY, 'gadget_plug_in').setDisplaySize(P.PLUG_SIZE, P.PLUG_SIZE)
@@ -687,41 +700,145 @@ class GameScene extends Phaser.Scene {
 
     explodeGadget(p) {
         if (p.isDefeated) return;
-        p.isDefeated = true;
-        p._shakeActive = false;
-        p._pulseActive = false;
         const P  = CONFIG.PLATFORM;
         const ex = p._gadgetOriginX;
         const ey = p._gadgetOriginY;
 
-        // Swap normal sprite → burned-out sprite
+        // Start a final intense shake sequence, swap sprite in the middle
         if (p.gadgetSprite) {
             this.tweens.killTweensOf(p.gadgetSprite);
-            p.gadgetSprite.setTint(0xffffff);
-            p.gadgetSprite.setScale(1);
             const burnedKey = `gadget_${p._gadgetName}_burnedout`;
+            
             if (this.textures.exists(burnedKey)) {
-                // Fade out normal sprite, then snap to burned image at full alpha (no fade-in overlay)
-                this.tweens.add({
-                    targets: p.gadgetSprite, alpha: 0, duration: 180, ease: 'Power2',
-                    onComplete: () => {
-                        if (!p.gadgetSprite) return;
-                        this.tweens.killTweensOf(p.gadgetSprite);
+                // Final tension shake sequence: progressive buildup, peak at sprite swap, then decay
+                const finalShakeDur = 30; // Fast, violent
+                let shakeCount = 0;
+                const totalShakes = 6; // Extended: 2 buildup, 1 peak (swap), 3 decay
+                
+                const doFinalShake = () => {
+                    if (!p.gadgetSprite) return;
+                    
+                    shakeCount++;
+                    
+                    // Calculate shake intensity: builds to peak at shake 3 (sprite swap)
+                    let currentAmt;
+                    if (shakeCount === 1) currentAmt = 8;   // Build up
+                    else if (shakeCount === 2) currentAmt = 14;  // Stronger build up
+                    else if (shakeCount === 3) currentAmt = 20;  // MAXIMUM at sprite swap
+                    else if (shakeCount === 4) currentAmt = 12;  // Decay
+                    else if (shakeCount === 5) currentAmt = 7;   // Further decay
+                    else currentAmt = 3;                          // Final settle shake
+                    
+                    // Swap sprite at peak shake (shake 3)
+                    if (shakeCount === 3) {
+                        // Switch texture mid-shake for continuity
                         p.gadgetSprite.setTexture(burnedKey);
                         p.gadgetSprite.setTint(0xffffff);
                         p.gadgetSprite.setScale(1);
                         p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
-                        p.gadgetSprite.setPosition(ex, ey);
-                        p.gadgetSprite.setAlpha(1); // show directly, no fade-in
-                    },
-                });
+                        p.gadgetSprite.setAlpha(1);
+                        p.isDefeated = true;
+                        p._shakeActive = false;
+                        p._pulseActive = false;
+                        
+                        // Radial explosion effect - MUCH MORE VISIBLE
+                        const spriteRadius = P.GADGET_SIZE / 2;
+                        const maxRadius = spriteRadius * 1.5; // 150% of sprite radius
+                        const numRings = 4;
+                        const colors = [0xFFFFAA, 0xFFDD77, 0xFFAA44, 0xFF8822];
+                        
+                        for (let i = 0; i < numRings; i++) {
+                            const ring = this.add.circle(ex, ey, 8, colors[i], 0.95).setDepth(100); // Much higher depth
+                            const delay = i * 15; // Stagger the rings
+                            
+                            this.time.delayedCall(delay, () => {
+                                this.tweens.add({
+                                    targets: ring,
+                                    radius: maxRadius,
+                                    alpha: 0,
+                                    duration: 350,
+                                    ease: 'Cubic.easeOut',
+                                    onComplete: () => ring.destroy()
+                                });
+                            });
+                        }
+                        
+                        // Add radial burst lines for extra impact
+                        const numLines = 12;
+                        for (let i = 0; i < numLines; i++) {
+                            const angle = (i / numLines) * Math.PI * 2;
+                            const line = this.add.graphics().setDepth(99);
+                            const startLen = 10;
+                            const targetLen = maxRadius * 1.3;
+                            
+                            this.tweens.add({
+                                targets: line,
+                                alpha: 0,
+                                duration: 250,
+                                ease: 'Cubic.easeOut',
+                                onUpdate: (tween) => {
+                                    const progress = tween.progress;
+                                    const currentLen = startLen + (targetLen - startLen) * progress;
+                                    const thickness = 5 * (1 - progress * 0.7); // Start thicker
+                                    line.clear();
+                                    line.lineStyle(thickness, 0xFFDD66, 1.0 * (1 - progress));
+                                    line.beginPath();
+                                    line.moveTo(ex, ey);
+                                    line.lineTo(ex + Math.cos(angle) * currentLen, ey + Math.sin(angle) * currentLen);
+                                    line.strokePath();
+                                },
+                                onComplete: () => line.destroy()
+                            });
+                        }
+                        
+                        // Add bright flash circle at center
+                        const flash = this.add.circle(ex, ey, spriteRadius * 0.6, 0xFFFFFF, 1).setDepth(101);
+                        this.tweens.add({
+                            targets: flash,
+                            radius: spriteRadius * 1.8,
+                            alpha: 0,
+                            duration: 200,
+                            ease: 'Power3',
+                            onComplete: () => flash.destroy()
+                        });
+                    }
+                    
+                    if (shakeCount >= totalShakes) {
+                        // Final settle
+                        this.tweens.add({
+                            targets: p.gadgetSprite, x: ex, y: ey,
+                            duration: 100, ease: 'Sine.easeOut'
+                        });
+                        return;
+                    }
+                    
+                    // Apply shake
+                    const dx = (Math.random() - 0.5) * currentAmt * 2;
+                    const dy = (Math.random() - 0.5) * currentAmt;
+                    
+                    this.tweens.add({
+                        targets: p.gadgetSprite, x: ex + dx, y: ey + dy,
+                        duration: finalShakeDur, ease: 'Sine.easeInOut',
+                        onComplete: doFinalShake
+                    });
+                };
+                
+                doFinalShake();
+                
             } else {
                 // Fallback: darken in place
                 p.gadgetSprite.setTint(0x444444);
                 p.gadgetSprite.setAlpha(1);
                 p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
                 p.gadgetSprite.setPosition(ex, ey);
+                p.isDefeated = true;
+                p._shakeActive = false;
+                p._pulseActive = false;
             }
+        } else {
+            p.isDefeated = true;
+            p._shakeActive = false;
+            p._pulseActive = false;
         }
 
         // Screen shake on burnout

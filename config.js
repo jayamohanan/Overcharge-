@@ -177,9 +177,9 @@ var CONFIG = {
         // ── Smoke effect ──────────────────────────────────────────────────────
         SMOKE_START_PROGRESS: 0.80,    // 0-1 charge fraction at which smoke begins
         SMOKE_FREQUENCY_START_MS: 600,  // ms between puffs when smoke first appears (sparse)
-        SMOKE_FREQUENCY_MAX_MS: 80,     // ms between puffs at peak / just after explosion (dense)
+        SMOKE_FREQUENCY_MAX_MS: 50,     // ms between puffs at peak / just after explosion (dense, faster)
         SMOKE_FREQUENCY_IDLE_MS: 450,   // ms between puffs after post-explosion burst (low idle)
-        SMOKE_MAX_AFTER_EXPLOSION_MS: 3000, // ms to sustain max smoke after burnout
+        SMOKE_MAX_AFTER_EXPLOSION_MS: 5000, // ms to sustain max smoke after burnout (longer)
         SMOKE_LIFESPAN_MS: 1200,       // ms each puff lasts
         SMOKE_RADIUS_MIN: 3,           // min puff radius (px)
         SMOKE_RADIUS_MAX: 8,           // max puff radius (px)
@@ -198,7 +198,7 @@ var CONFIG = {
 
         // ── Explosion ────────────────────────────────────────────────────────
         EXPLODE_SHAKE_DURATION: 350,   // ms of camera shake on gadget burnout
-        EXPLODE_SHAKE_INTENSITY: 0.018, // shake magnitude (0–1 scale)
+        EXPLODE_SHAKE_INTENSITY: 0.001, // shake magnitude (0–1 scale) - gentle shake at explosion
     },
 };
 
