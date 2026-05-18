@@ -280,7 +280,7 @@ class GameScene extends Phaser.Scene {
 
         if (progress < yellowThresh) {
             // Normal range — clear any leftover tint, soft pulse on each charge tick
-            p.gadgetSprite.clearTint();
+            p.gadgetSprite.setTint(0xffffff);
             this.tweens.add({ targets: p.gadgetSprite, alpha: 0.35, duration: 80, yoyo: true });
             return;
         }
@@ -332,19 +332,20 @@ class GameScene extends Phaser.Scene {
         }
 
         // ── Scale bulge in red zone ───────────────────────────────────────────
-        if (inRed && !p._pulseActive) {
-            p._pulseActive = true;
-            const sz    = P.GADGET_SIZE;
-            const bulge = sz * (1.05 + 0.04 * redIntensity);
-            this.tweens.add({
-                targets: p.gadgetSprite, displayWidth: bulge, displayHeight: bulge,
-                duration: 110, ease: 'Quad.easeOut', yoyo: true,
-                onComplete: () => {
-                    p._pulseActive = false;
-                    if (p.gadgetSprite && !p.isDefeated) p.gadgetSprite.setDisplaySize(sz, sz);
-                },
-            });
-        }
+        // Removed: scaling animation not needed since we now have burnedout sprite
+        // if (inRed && !p._pulseActive) {
+        //     p._pulseActive = true;
+        //     const sz    = P.GADGET_SIZE;
+        //     const bulge = sz * (1.05 + 0.04 * redIntensity);
+        //     this.tweens.add({
+        //         targets: p.gadgetSprite, displayWidth: bulge, displayHeight: bulge,
+        //         duration: 110, ease: 'Quad.easeOut', yoyo: true,
+        //         onComplete: () => {
+        //             p._pulseActive = false;
+        //             if (p.gadgetSprite && !p.isDefeated) p.gadgetSprite.setDisplaySize(sz, sz);
+        //         },
+        //     });
+        // }
 
         // ── Camera shake in red zone ──────────────────────────────────────────
         if (inRed) {
@@ -696,7 +697,7 @@ class GameScene extends Phaser.Scene {
         // Swap normal sprite → burned-out sprite
         if (p.gadgetSprite) {
             this.tweens.killTweensOf(p.gadgetSprite);
-            p.gadgetSprite.clearTint();
+            p.gadgetSprite.setTint(0xffffff);
             p.gadgetSprite.setScale(1);
             const burnedKey = `gadget_${p._gadgetName}_burnedout`;
             if (this.textures.exists(burnedKey)) {
@@ -707,7 +708,7 @@ class GameScene extends Phaser.Scene {
                         if (!p.gadgetSprite) return;
                         this.tweens.killTweensOf(p.gadgetSprite);
                         p.gadgetSprite.setTexture(burnedKey);
-                        p.gadgetSprite.clearTint();
+                        p.gadgetSprite.setTint(0xffffff);
                         p.gadgetSprite.setScale(1);
                         p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
                         p.gadgetSprite.setPosition(ex, ey);
@@ -716,7 +717,6 @@ class GameScene extends Phaser.Scene {
                 });
             } else {
                 // Fallback: darken in place
-                p.gadgetSprite.clearTint();
                 p.gadgetSprite.setTint(0x444444);
                 p.gadgetSprite.setAlpha(1);
                 p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
@@ -1166,7 +1166,7 @@ class GameScene extends Phaser.Scene {
         if (this.coins < this.spawnCost) {
             this.spawnButtonBg.setTint(0x888888).disableInteractive();
         } else {
-            this.spawnButtonBg.clearTint().setInteractive({ useHandCursor: true });
+            this.spawnButtonBg.setTint(0xffffff).setInteractive({ useHandCursor: true });
         }
     }
 
