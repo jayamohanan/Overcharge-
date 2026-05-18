@@ -4,6 +4,18 @@
     {"name": "phone",  "normal_sprite": "phone.png", "burnedout_sprite": "phone_burnedout.png",  "capacity": [40,  60,  80], "connection_height":0.3, "connection_left_padding":0.1},
     {"name": "laptop", "normal_sprite": "laptop.png", "burnedout_sprite": "laptop_burnedout.png", "capacity": [80,  100, 120], "connection_height":0.3, "connection_left_padding":0.1},
     {"name": "tablet", "normal_sprite": "tablet.png", "burnedout_sprite": "tablet_burnedout.png", "capacity": [150, 180, 220], "connection_height":0.3, "connection_left_padding":0.1},
-    {"name": "camera", "normal_sprite": "camera.png", "burnedout_sprite": "camera_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1}
+    {"name": "camera", "normal_sprite": "camera.png", "burnedout_sprite": "camera_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "ac", "normal_sprite": "ac.png", "burnedout_sprite": "ac_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "aircooler", "normal_sprite": "air_cooler.png", "burnedout_sprite": "aircooler_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "bluetooth_speaker", "normal_sprite": "bluetooth_speaker.png", "burnedout_sprite": "bluetooth_speaker_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "brush", "normal_sprite": "brush.png", "burnedout_sprite": "brush_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "bulb", "normal_sprite": "bulb.png", "burnedout_sprite": "bulb_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "car", "normal_sprite": "car.png", "burnedout_sprite": "car_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "cooktop", "normal_sprite": "cooktop.png", "burnedout_sprite": "cooktop_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "desktop", "normal_sprite": "desktop.png", "burnedout_sprite": "desktop_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "fridge", "normal_sprite": "fridge.png", "burnedout_sprite": "fridge_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "geyser", "normal_sprite": "geyser.png", "burnedout_sprite": "geyser_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "cooktop", "normal_sprite": "mixi.png", "burnedout_sprite": "mixi_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1},
+    {"name": "desktop", "normal_sprite": "washing_machine.png", "burnedout_sprite": "washing_machine_burnedout.png", "capacity": [200, 250, 300], "connection_height":0.3, "connection_left_padding":0.1}
   ]
 }

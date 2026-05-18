@@ -191,7 +191,7 @@ var CONFIG = {
         SOCKET_GAP_RIGHT: 20,          // gap (px) from slot right edge to socket centre
         SOCKET_SIZE: 40,               // socket sprite display size (px)
         PLUG_SIZE: 28,                 // plug sprite display size (px)
-        WIRE_SAG_PERCENT: 170,         // wire length as % of straight-line distance (>100 = sag)
+        WIRE_SAG_PERCENT: 130,         // wire length as % of straight-line distance (>100 = sag)
         WIRE_RIGID_LENGTH: 6,         // px of vertical rigid segment at plug/socket end before sag
         WIRE_THICKNESS: 5,             // wire line thickness (px)
         WIRE_COLOR: 0x46464a,          // wire color
@@ -242,3 +242,32 @@ function getBatteryIconLevel(level) {
     const highest = getHighestBatteryLevel();
     return Math.min(level, highest);
 }
+
+// ===================================================================
+// SPRITE SIZE QUICK REFERENCE
+// ===================================================================
+// Grid & Batteries:
+//   • Grid cell (empty/filled):        130 × 130 px  (CELL.SIZE)
+//   • Battery sprite in grid cell:      64 × 64 px   (CELL.BATTERY_DISPLAY_SIZE)
+//   • Battery level text offset:        -40 px Y     (CELL.LEVEL_TEXT_Y_OFFSET)
+//
+// Platform/Charger System:
+//   • Charger slot (battery holder):   130 × 130 px  (PLATFORM.SLOT_SIZE) — same as grid cell
+//   • Gadget sprite:                   115 × 115 px  (PLATFORM.GADGET_SIZE)
+//   • Socket (on slot):                 40 × 40 px   (PLATFORM.SOCKET_SIZE)
+//   • Plug (on wire):                   28 × 28 px   (PLATFORM.PLUG_SIZE)
+//   • Platform stripe height:           18 px        (PLATFORM.STRIPE_HEIGHT)
+//
+// Meter (analog gauge):
+//   • Meter radius:                     62 px        (PLATFORM.METER_RADIUS)
+//   • Meter diameter (approx):         124 px        (2 × radius)
+//
+// UI Elements:
+//   • Button battery icon:              64 × 64 px   (BUTTON.BATTERY_ICON_WIDTH/HEIGHT)
+//   • Button coin icon:                 50 × 50 px   (BUTTON.COIN_ICON_WIDTH/HEIGHT)
+//   • Coin counter icon:                40 × 40 px   (COIN_COUNTER.COIN_ICON_WIDTH/HEIGHT)
+//   • Reward coin (animation):          32 × 32 px   (COIN_REWARD_ANIMATION.REWARD_COIN_SIZE)
+//   • Crown icon (unlock display):      32 × 32 px   (BATTERY_UNLOCK_DISPLAY.CROWN_ICON_SIZE)
+//   • Spawn button:                    250 × 90 px   (BUTTON.SPAWN_WIDTH/HEIGHT)
+//   • Level-up button:                 180 × 70 px   (BUTTON.LEVELUP_WIDTH/HEIGHT)
+// ===================================================================
