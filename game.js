@@ -56,6 +56,12 @@ class GameScene extends Phaser.Scene {
         this.load.image('gadget_socket',   'graphics/connection/socket.png');
         this.load.image('gadget_plug_in',  'graphics/connection/plug_in.png');
         this.load.image('gadget_plug_out', 'graphics/connection/plug_out.png');
+        
+        // Load explosion sprite frames
+        for (let i = 1; i <= 8; i++) {
+            this.load.image(`explosion_${String(i).padStart(2, '0')}`, `graphics/explosion/explosion_${String(i).padStart(2, '0')}.png`);
+        }
+        
         this.load.json('levels', 'levels.json');
         this.load.on('filecomplete-json-levels', (_key, _type, data) => {
             (data.gadgets || []).forEach(g => {
@@ -79,6 +85,23 @@ class GameScene extends Phaser.Scene {
         bgGfx.fillGradientStyle(sc, sc, ec, ec, 1);
         bgGfx.fillRect(0, 0, W, H);
         bgGfx.setDepth(0);
+
+        // Create explosion animation
+        this.anims.create({
+            key: 'explode',
+            frames: [
+                { key: 'explosion_01' },
+                { key: 'explosion_02' },
+                { key: 'explosion_03' },
+                { key: 'explosion_04' },
+                { key: 'explosion_05' },
+                { key: 'explosion_06' },
+                { key: 'explosion_07' },
+                { key: 'explosion_08' }
+            ],
+            frameRate: 20,
+            repeat: 0
+        });
 
         // Load gadget data
         const levelsCache = this.cache.json.get('levels');
@@ -783,10 +806,11 @@ class GameScene extends Phaser.Scene {
         // Subtle pulse effect on the battery sprite when it charges the gadget
         if (!p.batterySprite) return;
         
+        const P = CONFIG.PLATFORM;
         this.tweens.add({
             targets: p.batterySprite,
-            scale: 1.08,
-            duration: 120,
+            scale: P.BATTERY_PULSE_SCALE,
+            duration: P.BATTERY_PULSE_DURATION,
             yoyo: true,
             ease: 'Sine.easeInOut'
         });
@@ -796,29 +820,71 @@ class GameScene extends Phaser.Scene {
         // Animate a glowing particle from the socket/plug through the wire to the gadget
         if (!p._wireStartX || !p._wireEndX) return;
         
-        const startX = p._wireStartX;
-        const startY = p._wireStartY;
-        const endX = p._wireEndX;
-        const endY = p._wireEndY;
+        const P = CONFIG.PLATFORM;
+        const x1 = p._wireStartX;
+        const y1 = p._wireStartY;
+        const x2 = p._wireEndX;
+        const y2 = p._wireEndY;
         
-        // Create a glowing energy particle
-        const particle = this.add.circle(startX, startY, 4, 0xFFFF00, 0.9).setDepth(3.8);
+        // Calculate wire path (same as _drawWire)
+        const d = Math.hypot(x2 - x1, y2 - y1);
+        if (d < 1) return;
         
-        // Animate along the wire path
+        // Rigid vertical segment
+        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rx = x1;
+        const ry = y1 + rigidLen;
+        
+        // Quadratic bezier control point for sag
+        const excess = Math.max(0, d * P.WIRE_SAG_PERCENT / 100 - d);
+        const sagDepth = Math.sqrt(0.75 * d * excess);
+        const cx = (rx + x2) / 2;
+        const cy = (ry + y2) / 2 + sagDepth;
+        
+        // Calculate total path length (approximate)
+        const rigidDist = rigidLen;
+        const curveDist = d * P.WIRE_SAG_PERCENT / 100;
+        const totalDist = rigidDist + curveDist;
+        const rigidFraction = rigidDist / totalDist;
+        
+        // Create glowing energy particle
+        const particle = this.add.circle(x1, y1, P.CHARGE_PARTICLE_SIZE, 0xFFFF00, 0.9).setDepth(3.8);
+        
+        // Animate along the wire path using progress from 0 to 1
         this.tweens.add({
-            targets: particle,
-            x: endX,
-            y: endY,
-            duration: 400,
-            ease: 'Cubic.easeInOut',
+            targets: { progress: 0 },
+            progress: 1,
+            duration: P.CHARGE_PARTICLE_SPEED,
+            ease: 'Linear',
+            onUpdate: (tween) => {
+                const progress = tween.getValue();
+                
+                if (progress <= rigidFraction) {
+                    // Moving down rigid segment
+                    const t = progress / rigidFraction;
+                    particle.x = x1;
+                    particle.y = y1 + t * rigidLen;
+                } else {
+                    // Moving along curved segment
+                    const t = (progress - rigidFraction) / (1 - rigidFraction);
+                    const mt = 1 - t;
+                    particle.x = mt * mt * rx + 2 * mt * t * cx + t * t * x2;
+                    particle.y = mt * mt * ry + 2 * mt * t * cy + t * t * y2;
+                }
+            },
             onComplete: () => {
-                // Flash effect at gadget when energy arrives
-                const flash = this.add.circle(endX, endY, 8, 0xFFFF88, 0.8).setDepth(5);
+                // Flash effect at gadget when energy arrives - bolt icon
+                const flash = this.add.image(x2, y2, 'bolt')
+                    .setDisplaySize(P.CHARGE_FLASH_INITIAL_SIZE, P.CHARGE_FLASH_INITIAL_SIZE)
+                    .setAlpha(0.9)
+                    .setDepth(5);
+                    
                 this.tweens.add({
                     targets: flash,
-                    radius: 16,
+                    displayWidth: P.CHARGE_FLASH_FINAL_SIZE,
+                    displayHeight: P.CHARGE_FLASH_FINAL_SIZE,
                     alpha: 0,
-                    duration: 250,
+                    duration: P.CHARGE_FLASH_DURATION,
                     ease: 'Cubic.easeOut',
                     onComplete: () => flash.destroy()
                 });
@@ -876,76 +942,104 @@ class GameScene extends Phaser.Scene {
                         p._shakeActive = false;
                         p._pulseActive = false;
                         
-                        // Radial explosion effect - MUCH MORE VISIBLE
-                        const spriteRadius = P.GADGET_SIZE / 2;
-                        const maxRadius = spriteRadius * 1.5; // 150% of sprite radius
-                        const numRings = 4;
-                        const colors = [0xFFFFAA, 0xFFDD77, 0xFFAA44, 0xFF8822];
-                        
-                        for (let i = 0; i < numRings; i++) {
-                            const ring = this.add.circle(ex, ey, 8, colors[i], 0.95).setDepth(100); // Much higher depth
-                            // Track this explosion effect for cleanup
-                            if (p.explosionEffects) p.explosionEffects.push(ring);
-                            const delay = i * 15; // Stagger the rings
+                        // CODE EXPLOSION - Radial rings and burst lines
+                        if (P.USE_CODE_EXPLOSION) {
+                            const spriteRadius = P.GADGET_SIZE / 2;
+                            const maxRadius = spriteRadius * 1.5; // 150% of sprite radius
+                            const numRings = 4;
+                            const colors = [0xFFFFAA, 0xFFDD77, 0xFFAA44, 0xFF8822];
                             
-                            this.time.delayedCall(delay, () => {
-                                if (!ring.scene) return; // Already destroyed
-                                this.tweens.add({
-                                    targets: ring,
-                                    radius: maxRadius,
-                                    alpha: 0,
-                                    duration: 350,
-                                    ease: 'Cubic.easeOut',
-                                    onComplete: () => {
-                                        // Remove from tracking array
-                                        if (p.explosionEffects) {
-                                            const idx = p.explosionEffects.indexOf(ring);
-                                            if (idx > -1) p.explosionEffects.splice(idx, 1);
+                            for (let i = 0; i < numRings; i++) {
+                                const ring = this.add.circle(ex, ey, 8, colors[i], 0.95).setDepth(100); // Much higher depth
+                                // Track this explosion effect for cleanup
+                                if (p.explosionEffects) p.explosionEffects.push(ring);
+                                const delay = i * 15; // Stagger the rings
+                                
+                                this.time.delayedCall(delay, () => {
+                                    if (!ring.scene) return; // Already destroyed
+                                    this.tweens.add({
+                                        targets: ring,
+                                        radius: maxRadius,
+                                        alpha: 0,
+                                        duration: 350,
+                                        ease: 'Cubic.easeOut',
+                                        onComplete: () => {
+                                            // Remove from tracking array
+                                            if (p.explosionEffects) {
+                                                const idx = p.explosionEffects.indexOf(ring);
+                                                if (idx > -1) p.explosionEffects.splice(idx, 1);
+                                            }
+                                            ring.destroy();
                                         }
-                                        ring.destroy();
-                                    }
+                                    });
                                 });
-                            });
-                        }
-                        
-                        // Add radial burst lines for extra impact
-                        const numLines = 12;
-                        for (let i = 0; i < numLines; i++) {
-                            const angle = (i / numLines) * Math.PI * 2;
-                            const line = this.add.graphics().setDepth(99);
-                            const startLen = 10;
-                            const targetLen = maxRadius * 1.3;
+                            }
                             
+                            // Add radial burst lines for extra impact
+                            const numLines = 12;
+                            for (let i = 0; i < numLines; i++) {
+                                const angle = (i / numLines) * Math.PI * 2;
+                                const line = this.add.graphics().setDepth(99);
+                                const startLen = 10;
+                                const targetLen = maxRadius * 1.3;
+                                
+                                this.tweens.add({
+                                    targets: line,
+                                    alpha: 0,
+                                    duration: 250,
+                                    ease: 'Cubic.easeOut',
+                                    onUpdate: (tween) => {
+                                        const progress = tween.progress;
+                                        const currentLen = startLen + (targetLen - startLen) * progress;
+                                        const thickness = 5 * (1 - progress * 0.7); // Start thicker
+                                        line.clear();
+                                        line.lineStyle(thickness, 0xFFDD66, 1.0 * (1 - progress));
+                                        line.beginPath();
+                                        line.moveTo(ex, ey);
+                                        line.lineTo(ex + Math.cos(angle) * currentLen, ey + Math.sin(angle) * currentLen);
+                                        line.strokePath();
+                                    },
+                                    onComplete: () => line.destroy()
+                                });
+                            }
+                            
+                            // Add bright flash circle at center
+                            const flash = this.add.circle(ex, ey, spriteRadius * 0.6, 0xFFFFFF, 1).setDepth(101);
                             this.tweens.add({
-                                targets: line,
+                                targets: flash,
+                                radius: spriteRadius * 1.8,
                                 alpha: 0,
-                                duration: 250,
-                                ease: 'Cubic.easeOut',
-                                onUpdate: (tween) => {
-                                    const progress = tween.progress;
-                                    const currentLen = startLen + (targetLen - startLen) * progress;
-                                    const thickness = 5 * (1 - progress * 0.7); // Start thicker
-                                    line.clear();
-                                    line.lineStyle(thickness, 0xFFDD66, 1.0 * (1 - progress));
-                                    line.beginPath();
-                                    line.moveTo(ex, ey);
-                                    line.lineTo(ex + Math.cos(angle) * currentLen, ey + Math.sin(angle) * currentLen);
-                                    line.strokePath();
-                                },
-                                onComplete: () => line.destroy()
+                                duration: 200,
+                                ease: 'Power3',
+                                onComplete: () => flash.destroy()
                             });
                         }
                         
-                        // Add bright flash circle at center
-                        const flash = this.add.circle(ex, ey, spriteRadius * 0.6, 0xFFFFFF, 1).setDepth(101);
-                        this.tweens.add({
-                            targets: flash,
-                            radius: spriteRadius * 1.8,
-                            alpha: 0,
-                            duration: 200,
-                            ease: 'Power3',
-                            onComplete: () => flash.destroy()
-                        });
+                        // SPRITE EXPLOSION - Animated sprite frames
+                        if (P.USE_SPRITE_EXPLOSION) {
+                            const explosionSprite = this.add.sprite(ex, ey, 'explosion_01')
+                                .setOrigin(0.5, 0.5)
+                                .setScale(P.SPRITE_EXPLOSION_SCALE)
+                                .setDepth(100);
+                            
+                            // Track this explosion effect for cleanup
+                            if (p.explosionEffects) p.explosionEffects.push(explosionSprite);
+                            
+                            // Play the explosion animation
+                            explosionSprite.play('explode');
+                            
+                            // Remove sprite after animation completes
+                            this.time.delayedCall(P.SPRITE_EXPLOSION_DURATION, () => {
+                                if (explosionSprite && explosionSprite.scene) {
+                                    // Remove from tracking array
+                                    if (p.explosionEffects) {
+                                        const idx = p.explosionEffects.indexOf(explosionSprite);
+                                        if (idx > -1) p.explosionEffects.splice(idx, 1);
+                                    }
+                                    explosionSprite.destroy();
+                                }
+                            });
+                        }
                     }
                     
                     if (shakeCount >= totalShakes) {

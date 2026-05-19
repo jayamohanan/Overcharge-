@@ -171,7 +171,7 @@ var CONFIG = {
         METER_GAP: 8,                  // gap from gadget right edge to meter arc (px)
         METER_Y_OFFSET: 0,             // meter pivot Y offset from gadget bottom (positive = down)
         METER_RADIUS: 62,              // arc radius (px)
-        METER_SCALE: 1.0,              // scale of entire meter (1.0 = normal size)
+        METER_SCALE: 1,              // scale of entire meter (1.0 = normal size)
         METER_EXPLOSION_ANGLE: 170,    // needle angle (0-180) at full charge
         METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
@@ -201,6 +201,20 @@ var CONFIG = {
         // ── Explosion ────────────────────────────────────────────────────────
         EXPLODE_SHAKE_DURATION: 350,   // ms of camera shake on gadget burnout
         EXPLODE_SHAKE_INTENSITY: 0.001, // shake magnitude (0–1 scale) - gentle shake at explosion
+        USE_CODE_EXPLOSION: false,       // toggle code-based explosion (rings and radial lines)
+        USE_SPRITE_EXPLOSION: true,    // toggle sprite-based explosion (animated frames)
+        SPRITE_EXPLOSION_SCALE: 2.0,    // scale of sprite explosion animation
+        SPRITE_EXPLOSION_DURATION: 400, // ms duration of sprite explosion animation
+        // ── Charging effects ──────────────────────────────────────────────────
+        BATTERY_PULSE_SCALE: 0.6,     // scale multiplier when battery pulses during charging (1.04 = 4% larger)
+        BATTERY_PULSE_DURATION: 80,   // ms for battery pulse animation
+        
+        CHARGE_PARTICLE_SIZE: 2,       // radius of energy particle traveling through wire (px)
+        CHARGE_PARTICLE_SPEED: 450,    // ms for particle to travel from plug to gadget
+        
+        CHARGE_FLASH_INITIAL_SIZE: 16, // initial size of bolt flash at gadget (px)
+        CHARGE_FLASH_FINAL_SIZE: 32,   // final size of bolt flash before fade (px)
+        CHARGE_FLASH_DURATION: 250,    // ms for flash scale-up and fade animation
     },
 };
 
