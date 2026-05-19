@@ -789,6 +789,8 @@ class GameScene extends Phaser.Scene {
             // Visual effects: pulse battery and animate energy flow
             this._pulseBatteryIcon(p);
             this._animateEnergyFlow(p);
+            this._animateEnergyBeam(p);
+            this._animateGadgetGlow(p);
 
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
                 this.explodeGadget(p);
@@ -818,6 +820,103 @@ class GameScene extends Phaser.Scene {
             duration: P.BATTERY_PULSE_DURATION,
             yoyo: true,
             ease: 'Sine.easeInOut'
+        });
+    }
+
+    _animateEnergyBeam(p) {
+        // Draw a glowing beam along the wire during charge pulse
+        if (!p._wireStartX || !p._wireEndX) return;
+        const P = CONFIG.PLATFORM;
+        if (!P.ENERGY_BEAM_ENABLED) return;
+        
+        const x1 = p._wireStartX;
+        const y1 = p._wireStartY;
+        const x2 = p._wireEndX;
+        const y2 = p._wireEndY;
+        
+        // Calculate wire path
+        const d = Math.hypot(x2 - x1, y2 - y1);
+        if (d < 1) return;
+        
+        // Rigid vertical segment
+        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rx = x1;
+        const ry = y1 + rigidLen;
+        
+        // Quadratic bezier control point for sag
+        const excess = Math.max(0, d * P.WIRE_SAG_PERCENT / 100 - d);
+        const sagDepth = Math.sqrt(0.75 * d * excess);
+        const cx = (rx + x2) / 2;
+        const cy = (ry + y2) / 2 + sagDepth;
+        
+        // Create beam graphics
+        const beam = this.add.graphics().setDepth(3.5).setAlpha(0);
+        beam.lineStyle(P.ENERGY_BEAM_THICKNESS, P.ENERGY_BEAM_COLOR, P.ENERGY_BEAM_ALPHA);
+        
+        // Draw the beam path - approximate quadratic bezier with line segments
+        beam.beginPath();
+        beam.moveTo(x1, y1);
+        beam.lineTo(rx, ry);
+        
+        // Draw curved section with multiple line segments (smooth approximation)
+        const segments = 20;
+        for (let i = 0; i <= segments; i++) {
+            const t = i / segments;
+            const mt = 1 - t;
+            const bx = mt * mt * rx + 2 * mt * t * cx + t * t * x2;
+            const by = mt * mt * ry + 2 * mt * t * cy + t * t * y2;
+            beam.lineTo(bx, by);
+        }
+        beam.strokePath();
+        
+        // Fade in and out
+        this.tweens.add({
+            targets: beam,
+            alpha: P.ENERGY_BEAM_ALPHA,
+            duration: P.ENERGY_BEAM_DURATION / 2,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: beam,
+                    alpha: 0,
+                    duration: P.ENERGY_BEAM_DURATION / 2,
+                    ease: 'Cubic.easeIn',
+                    onComplete: () => beam.destroy()
+                });
+            }
+        });
+    }
+    
+    _animateGadgetGlow(p) {
+        // Add glowing halo around gadget during charge pulse
+        if (!p.gadgetSprite) return;
+        const P = CONFIG.PLATFORM;
+        if (!P.GADGET_ENERGY_GLOW_ENABLED) return;
+        
+        const gx = p._gadgetOriginX;
+        const gy = p._gadgetOriginY;
+        
+        // Create glow circle around gadget
+        const glowSize = P.GADGET_SIZE / 2 + P.GADGET_ENERGY_GLOW_SIZE;
+        const glow = this.add.circle(gx, gy, glowSize, P.GADGET_ENERGY_GLOW_COLOR, 0).setDepth(4.1);
+        
+        // Fade in and out with slight scale pulse
+        this.tweens.add({
+            targets: glow,
+            alpha: P.GADGET_ENERGY_GLOW_ALPHA,
+            radius: glowSize * 1.1,
+            duration: P.GADGET_ENERGY_GLOW_DURATION / 2,
+            ease: 'Cubic.easeOut',
+            onComplete: () => {
+                this.tweens.add({
+                    targets: glow,
+                    alpha: 0,
+                    radius: glowSize * 1.3,
+                    duration: P.GADGET_ENERGY_GLOW_DURATION / 2,
+                    ease: 'Cubic.easeIn',
+                    onComplete: () => glow.destroy()
+                });
+            }
         });
     }
 

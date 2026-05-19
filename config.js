@@ -219,6 +219,19 @@ var CONFIG = {
         CHARGE_FLASH_INITIAL_SIZE: 16, // initial size of bolt flash at gadget (px)
         CHARGE_FLASH_FINAL_SIZE: 32,   // final size of bolt flash before fade (px)
         CHARGE_FLASH_DURATION: 250,    // ms for flash scale-up and fade animation
+        
+        // Energy beam effects
+        ENERGY_BEAM_ENABLED: true,     // toggle energy beam effect along wire
+        ENERGY_BEAM_THICKNESS: 8,      // thickness of energy beam along wire (px)
+        ENERGY_BEAM_COLOR: 0xFFFF00,   // color of energy beam
+        ENERGY_BEAM_ALPHA: 0.6,        // opacity of energy beam
+        ENERGY_BEAM_DURATION: 300,     // ms for beam to appear and fade
+        
+        GADGET_ENERGY_GLOW_ENABLED: true, // toggle energy glow around gadget during pulse
+        GADGET_ENERGY_GLOW_SIZE: 20,   // size of glow halo around gadget (px)
+        GADGET_ENERGY_GLOW_COLOR: 0xFFFF00, // color of energy glow
+        GADGET_ENERGY_GLOW_ALPHA: 0.5, // opacity of energy glow
+        GADGET_ENERGY_GLOW_DURATION: 300, // ms for glow to appear and fade
     },
 };
 
