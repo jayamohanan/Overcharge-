@@ -140,12 +140,14 @@ class GameScene extends Phaser.Scene {
             const rateTextY = slotAboveY - ssz / 2 - P.CHARGE_RATE_GAP;
             const chargeRateText = this.add.text(sx - 2, rateTextY, '', {
                 fontSize: '22px', fontFamily: CONFIG.FONT_FAMILY,
-                color: '#FFD700', fontStyle: 'bold',
-                stroke: '#000000', strokeThickness: 3,
+                color: '#000000', fontStyle: 'bold',
+                stroke: '#FFFFFF', strokeThickness: 3,
             }).setOrigin(1, 0.5).setDepth(5).setVisible(false);
 
             const chargeRateBolt = this.add.image(sx + 2, rateTextY, 'bolt')
-                .setDisplaySize(24, 24).setOrigin(0, 0.5).setDepth(5).setVisible(false);
+                .setDisplaySize(P.CHARGE_RATE_BOLT_SIZE, P.CHARGE_RATE_BOLT_SIZE)
+                .setOrigin(0, 0.5).setDepth(5).setVisible(false)
+                .setTint(0xFFFF00);
 
             this.platforms.push({
                 index: i,
@@ -537,8 +539,8 @@ class GameScene extends Phaser.Scene {
 
             const capText = this.add.text(gx, gy - gsz / 2 - P.CAPACITY_TEXT_GAP, `${capacity}`, {
                 fontSize: '18px', fontFamily: CONFIG.FONT_FAMILY,
-                color: '#AADDFF', fontStyle: 'bold',
-                stroke: '#000000', strokeThickness: 3,
+                color: '#000000', fontStyle: 'bold',
+                stroke: '#FFFFFF', strokeThickness: 3,
             }).setOrigin(0.5, 1).setDepth(5);
 
             const normalKey = `gadget_${gadgetData.name}_normal`;
@@ -599,21 +601,28 @@ class GameScene extends Phaser.Scene {
             p.socketSprite = socketSprite;
             p.plugSprite   = plugSprite;
             p.wireGraphics = wireGfx;
+            p._wireStartX  = socketX;
+            p._wireStartY  = socketY;
+            p._wireEndX    = plugEndX;
+            p._wireEndY    = plugEndY;
 
             // ── Analog meter ──────────────────────────────────────────────────
-            const mpx = P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS;
+            const mpx = P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS * P.METER_SCALE;
             const mpy = gy + gsz / 2 + P.METER_Y_OFFSET;
 
             const meterBg = this.add.graphics().setDepth(4.2);
             this._drawMeterBg(meterBg, mpx, mpy);
+            meterBg.setScale(P.METER_SCALE);
 
             // Needle: thin rect, origin at pivot (bottom-centre), initial angle -90 = far-left
             const meterNeedle = this.add.rectangle(
                 mpx, mpy, 3, P.METER_RADIUS - 10, 0xF0F0F0)
-                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6);
+                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6)
+                .setScale(P.METER_SCALE);
 
             // Pivot dot on top of everything
-            const meterPivot = this.add.circle(mpx, mpy, 5, 0x223344).setDepth(4.8);
+            const meterPivot = this.add.circle(mpx, mpy, 5, 0x223344).setDepth(4.8)
+                .setScale(P.METER_SCALE);
 
             p.meterBg     = meterBg;
             p.meterNeedle = meterNeedle;
@@ -748,6 +757,10 @@ class GameScene extends Phaser.Scene {
                 p.gadgetCurrentCharge + slot.chargePerMinute, p.gadgetCapacity);
             this.updateGadgetChargeBar(p);
             this._applyTensionEffects(p);
+            
+            // Visual effects: pulse battery and animate energy flow
+            this._pulseBatteryIcon(p);
+            this._animateEnergyFlow(p);
 
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
                 this.explodeGadget(p);
@@ -764,6 +777,54 @@ class GameScene extends Phaser.Scene {
             p.gadgetCapacityText.setAlpha(0.35 + 0.65 * (1 - progress));
         }
         this._animateMeterNeedle(p, progress * CONFIG.PLATFORM.METER_EXPLOSION_ANGLE);
+    }
+
+    _pulseBatteryIcon(p) {
+        // Subtle pulse effect on the battery sprite when it charges the gadget
+        if (!p.batterySprite) return;
+        
+        this.tweens.add({
+            targets: p.batterySprite,
+            scale: 1.08,
+            duration: 120,
+            yoyo: true,
+            ease: 'Sine.easeInOut'
+        });
+    }
+
+    _animateEnergyFlow(p) {
+        // Animate a glowing particle from the socket/plug through the wire to the gadget
+        if (!p._wireStartX || !p._wireEndX) return;
+        
+        const startX = p._wireStartX;
+        const startY = p._wireStartY;
+        const endX = p._wireEndX;
+        const endY = p._wireEndY;
+        
+        // Create a glowing energy particle
+        const particle = this.add.circle(startX, startY, 4, 0xFFFF00, 0.9).setDepth(3.8);
+        
+        // Animate along the wire path
+        this.tweens.add({
+            targets: particle,
+            x: endX,
+            y: endY,
+            duration: 400,
+            ease: 'Cubic.easeInOut',
+            onComplete: () => {
+                // Flash effect at gadget when energy arrives
+                const flash = this.add.circle(endX, endY, 8, 0xFFFF88, 0.8).setDepth(5);
+                this.tweens.add({
+                    targets: flash,
+                    radius: 16,
+                    alpha: 0,
+                    duration: 250,
+                    ease: 'Cubic.easeOut',
+                    onComplete: () => flash.destroy()
+                });
+                particle.destroy();
+            }
+        });
     }
 
     explodeGadget(p) {

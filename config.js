@@ -159,6 +159,7 @@ var CONFIG = {
         SLOT_RADIUS: 15,               // corner radius (px)
         SLOT_ABOVE_STRIPE: 14,         // gap (px) between slot bottom and stripe top
         CHARGE_RATE_GAP: 10,           // gap (px) between charge-rate label bottom and slot top
+        CHARGE_RATE_BOLT_SIZE: 18,     // bolt icon display size (px)
 
         // ── Gadget sprite ──────────────────────────────────────────────────────
         GADGET_X: 490,                 // horizontal centre of gadget sprite (px)
@@ -170,6 +171,7 @@ var CONFIG = {
         METER_GAP: 8,                  // gap from gadget right edge to meter arc (px)
         METER_Y_OFFSET: 0,             // meter pivot Y offset from gadget bottom (positive = down)
         METER_RADIUS: 62,              // arc radius (px)
+        METER_SCALE: 1.0,              // scale of entire meter (1.0 = normal size)
         METER_EXPLOSION_ANGLE: 170,    // needle angle (0-180) at full charge
         METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
