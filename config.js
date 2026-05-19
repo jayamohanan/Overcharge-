@@ -170,8 +170,10 @@ var CONFIG = {
         // ── Analog meter ──────────────────────────────────────────────────────
         METER_GAP: 8,                  // gap from gadget right edge to meter arc (px)
         METER_Y_OFFSET: 0,             // meter pivot Y offset from gadget bottom (positive = down)
-        METER_RADIUS: 62,              // arc radius (px)
-        METER_SCALE: 1,              // scale of entire meter (1.0 = normal size)
+        METER_X: null,                 // override meter pivot X position (null = auto-calculate from gadget)
+        METER_Y: null,                 // override meter pivot Y position (null = auto-calculate from gadget)
+        METER_RADIUS: 62,              // arc radius (px) - drawn at full size, then scaled
+        METER_SCALE: 0.7,                // scale of entire meter (1.0 = normal size, 0.5 = half size)
         METER_EXPLOSION_ANGLE: 170,    // needle angle (0-180) at full charge
         METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
@@ -205,6 +207,8 @@ var CONFIG = {
         USE_SPRITE_EXPLOSION: true,    // toggle sprite-based explosion (animated frames)
         SPRITE_EXPLOSION_SCALE: 2.0,    // scale of sprite explosion animation
         SPRITE_EXPLOSION_DURATION: 400, // ms duration of sprite explosion animation
+        BURNEDOUT_DISPLAY_DURATION: 5000, // ms to show burned out sprite before fading/removing it (0 = keep forever)
+        BURNEDOUT_FADE_DURATION: 500,  // ms for burned out sprite fade-out animation
         // ── Charging effects ──────────────────────────────────────────────────
         BATTERY_PULSE_SCALE: 0.6,     // scale multiplier when battery pulses during charging (1.04 = 4% larger)
         BATTERY_PULSE_DURATION: 80,   // ms for battery pulse animation

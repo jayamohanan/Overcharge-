@@ -630,22 +630,27 @@ class GameScene extends Phaser.Scene {
             p._wireEndY    = plugEndY;
 
             // ── Analog meter ──────────────────────────────────────────────────
-            const mpx = P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS * P.METER_SCALE;
-            const mpy = gy + gsz / 2 + P.METER_Y_OFFSET;
+            // Calculate meter pivot position (unscaled coordinates)
+            const mpx = P.METER_X !== null ? P.METER_X : (P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS);
+            const mpy = P.METER_Y !== null ? P.METER_Y : (gy + gsz / 2 + P.METER_Y_OFFSET);
 
             const meterBg = this.add.graphics().setDepth(4.2);
-            this._drawMeterBg(meterBg, mpx, mpy);
-            meterBg.setScale(P.METER_SCALE);
+            // Draw at full size (unscaled), then scale the entire graphics object
+            this._drawMeterBg(meterBg, 0, 0);  // Draw at origin
+            meterBg.setPosition(mpx, mpy);      // Position the pivot point
+            meterBg.setScale(P.METER_SCALE);    // Scale around the pivot
 
             // Needle: thin rect, origin at pivot (bottom-centre), initial angle -90 = far-left
             const meterNeedle = this.add.rectangle(
-                mpx, mpy, 3, P.METER_RADIUS - 10, 0xF0F0F0)
-                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6)
-                .setScale(P.METER_SCALE);
+                0, 0, 3, P.METER_RADIUS - 10, 0xF0F0F0)
+                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6);
+            meterNeedle.setPosition(mpx, mpy);
+            meterNeedle.setScale(P.METER_SCALE);
 
             // Pivot dot on top of everything
-            const meterPivot = this.add.circle(mpx, mpy, 5, 0x223344).setDepth(4.8)
-                .setScale(P.METER_SCALE);
+            const meterPivot = this.add.circle(0, 0, 5, 0x223344).setDepth(4.8);
+            meterPivot.setPosition(mpx, mpy);
+            meterPivot.setScale(P.METER_SCALE);
 
             p.meterBg     = meterBg;
             p.meterNeedle = meterNeedle;
@@ -942,6 +947,41 @@ class GameScene extends Phaser.Scene {
                         p._shakeActive = false;
                         p._pulseActive = false;
                         
+                        // Schedule removal of burnedout sprite after configured duration
+                        if (P.BURNEDOUT_DISPLAY_DURATION > 0) {
+                            this.time.delayedCall(P.BURNEDOUT_DISPLAY_DURATION, () => {
+                                if (p.gadgetSprite && p.gadgetSprite.scene) {
+                                    // Stop smoke generation
+                                    this._stopSmoke(p);
+                                    
+                                    // Clean up all smoke puffs
+                                    if (p.smokePuffs) {
+                                        for (const puff of p.smokePuffs) {
+                                            if (puff && puff.scene) {
+                                                this.tweens.killTweensOf(puff);
+                                                puff.destroy();
+                                            }
+                                        }
+                                        p.smokePuffs = [];
+                                    }
+                                    
+                                    // Fade out the burnedout sprite
+                                    this.tweens.add({
+                                        targets: p.gadgetSprite,
+                                        alpha: 0,
+                                        duration: P.BURNEDOUT_FADE_DURATION,
+                                        ease: 'Cubic.easeOut',
+                                        onComplete: () => {
+                                            if (p.gadgetSprite && p.gadgetSprite.scene) {
+                                                p.gadgetSprite.destroy();
+                                                p.gadgetSprite = null;
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        
                         // CODE EXPLOSION - Radial rings and burst lines
                         if (P.USE_CODE_EXPLOSION) {
                             const spriteRadius = P.GADGET_SIZE / 2;
@@ -1079,6 +1119,41 @@ class GameScene extends Phaser.Scene {
                 p.isDefeated = true;
                 p._shakeActive = false;
                 p._pulseActive = false;
+                
+                // Schedule removal of burnedout sprite after configured duration
+                if (P.BURNEDOUT_DISPLAY_DURATION > 0) {
+                    this.time.delayedCall(P.BURNEDOUT_DISPLAY_DURATION, () => {
+                        if (p.gadgetSprite && p.gadgetSprite.scene) {
+                            // Stop smoke generation
+                            this._stopSmoke(p);
+                            
+                            // Clean up all smoke puffs
+                            if (p.smokePuffs) {
+                                for (const puff of p.smokePuffs) {
+                                    if (puff && puff.scene) {
+                                        this.tweens.killTweensOf(puff);
+                                        puff.destroy();
+                                    }
+                                }
+                                p.smokePuffs = [];
+                            }
+                            
+                            // Fade out the burnedout sprite
+                            this.tweens.add({
+                                targets: p.gadgetSprite,
+                                alpha: 0,
+                                duration: P.BURNEDOUT_FADE_DURATION,
+                                ease: 'Cubic.easeOut',
+                                onComplete: () => {
+                                    if (p.gadgetSprite && p.gadgetSprite.scene) {
+                                        p.gadgetSprite.destroy();
+                                        p.gadgetSprite = null;
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
             }
         } else {
             p.isDefeated = true;
