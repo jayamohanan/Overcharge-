@@ -27,7 +27,7 @@ var CONFIG = {
         LEVELUP_COLOR: "#FF6B9D",
         LEVELUP_BORDER_COLOR: "#E91E63",
         LEVELUP_BORDER_WIDTH: 4,
-        BOTTOM_PADDING: 80,
+        BOTTOM_PADDING: 70,
         BUTTON_SPACING: 220,
         BATTERY_ICON_WIDTH: 64,
         BATTERY_ICON_HEIGHT: 64,
@@ -43,7 +43,7 @@ var CONFIG = {
     },
 
     MERGE_GRID: {
-        PADDING_FROM_BUTTON_TOP: 20,
+        PADDING_FROM_BUTTON_TOP: 50,
     },
 
     BATTERY_UNLOCK_DISPLAY: {
@@ -154,26 +154,43 @@ var CONFIG = {
         STRIPE_ALPHA: 0.9,
 
         // ── Battery slot ──────────────────────────────────────────────────────
-        SLOT_X: 210,                   // horizontal centre of battery slot (px)
+        SLOT_PADDING_FROM_LEFT: 80,    // padding from stripe left edge to slot left edge (px)
         SLOT_SIZE: 130,                // slot square size (px)
         SLOT_RADIUS: 15,               // corner radius (px)
         SLOT_ABOVE_STRIPE: 14,         // gap (px) between slot bottom and stripe top
         CHARGE_RATE_GAP: 10,           // gap (px) between charge-rate label bottom and slot top
         CHARGE_RATE_BOLT_SIZE: 18,     // bolt icon display size (px)
 
-        // ── Gadget sprite ──────────────────────────────────────────────────────
-        GADGET_X: 490,                 // horizontal centre of gadget sprite (px)
-        GADGET_SIZE: 115,              // display size — square (px)
-        GADGET_ABOVE_STRIPE: 14,       // gap (px) between gadget bottom and stripe top
-        CAPACITY_TEXT_GAP: 10,         // gap (px) between capacity label bottom and gadget top
+        // ── Wire connection (socket) ──────────────────────────────────────────
+        SOCKET_GAP_FROM_SLOT: 25,      // gap (px) from slot right edge to socket centre
+        SOCKET_SIZE: 40,               // socket sprite display size (px)
+        PLUG_SIZE: 28,                 // plug sprite display size (px)
+        WIRE_SAG_PERCENT: 130,         // wire length as % of straight-line distance (>100 = sag)
+        WIRE_RIGID_LENGTH: 6,          // px of vertical rigid segment at plug/socket end before sag
+        WIRE_THICKNESS: 5,             // wire line thickness (px)
+        WIRE_COLOR: 0x46464a,          // wire color
+
+        // ── Debug rect (max gadget area) ──────────────────────────────────────
+        DEBUG_RECT_PADDING_FROM_SLOT: 100, // padding from slot right edge to debug rect left edge (px)
+        DEBUG_RECT_PADDING_FROM_STRIPE: 14, // padding from stripe top to debug rect bottom (px)
+        DEBUG_RECT_WIDTH: 250,         // max width for gadget display area (px)
+        DEBUG_RECT_HEIGHT: 115,        // max height for gadget display area (px)
+        DEBUG_RECT_SHOW: false,        // show semi-transparent rect for max gadget area
+        DEBUG_RECT_COLOR: 0xFF00FF,    // debug rect color (magenta)
+        DEBUG_RECT_ALPHA: 0.3,         // debug rect transparency (0-1)
+        
+        // ── Capacity text (above gadget) ───────────────────────────────────────
+        CAPACITY_TEXT_GAP: 8,          // gap (px) between capacity text bottom and gadget top
+        CAPACITY_TEXT_SIZE: '20px',    // font size for capacity remaining text
 
         // ── Analog meter ──────────────────────────────────────────────────────
-        METER_GAP: 8,                  // gap from gadget right edge to meter arc (px)
+        SHOW_ANALOG_METER: false,       // toggle analog meter display on/off
+        METER_PADDING_FROM_GADGET: 40,  // padding from gadget display right edge to meter arc (px)
         METER_Y_OFFSET: 0,             // meter pivot Y offset from gadget bottom (positive = down)
         METER_X: null,                 // override meter pivot X position (null = auto-calculate from gadget)
         METER_Y: null,                 // override meter pivot Y position (null = auto-calculate from gadget)
         METER_RADIUS: 62,              // arc radius (px) - drawn at full size, then scaled
-        METER_SCALE: 0.7,                // scale of entire meter (1.0 = normal size, 0.5 = half size)
+        METER_SCALE: 0.7,              // scale of entire meter (1.0 = normal size, 0.5 = half size)
         METER_EXPLOSION_ANGLE: 170,    // needle angle (0-180) at full charge
         METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
@@ -191,15 +208,6 @@ var CONFIG = {
         SMOKE_DRIFT_Y: 55,             // how far upward each puff drifts (px)
         SMOKE_COLOR: 0x999999,         // puff color
 
-        // ── Wire connection ────────────────────────────────────────────────────
-        SOCKET_GAP_RIGHT: 20,          // gap (px) from slot right edge to socket centre
-        SOCKET_SIZE: 40,               // socket sprite display size (px)
-        PLUG_SIZE: 28,                 // plug sprite display size (px)
-        WIRE_SAG_PERCENT: 130,         // wire length as % of straight-line distance (>100 = sag)
-        WIRE_RIGID_LENGTH: 6,         // px of vertical rigid segment at plug/socket end before sag
-        WIRE_THICKNESS: 5,             // wire line thickness (px)
-        WIRE_COLOR: 0x46464a,          // wire color
-
         // ── Explosion ────────────────────────────────────────────────────────
         EXPLODE_SHAKE_DURATION: 350,   // ms of camera shake on gadget burnout
         EXPLODE_SHAKE_INTENSITY: 0.001, // shake magnitude (0–1 scale) - gentle shake at explosion
@@ -207,7 +215,7 @@ var CONFIG = {
         USE_SPRITE_EXPLOSION: true,    // toggle sprite-based explosion (animated frames)
         SPRITE_EXPLOSION_SCALE: 2.0,    // scale of sprite explosion animation
         SPRITE_EXPLOSION_DURATION: 400, // ms duration of sprite explosion animation
-        BURNEDOUT_DISPLAY_DURATION: 5000, // ms to show burned out sprite before fading/removing it (0 = keep forever)
+        BURNEDOUT_DISPLAY_DURATION: 500, // ms to show burned out sprite before fading/removing it (0 = keep forever)
         BURNEDOUT_FADE_DURATION: 500,  // ms for burned out sprite fade-out animation
         // ── Charging effects ──────────────────────────────────────────────────
         BATTERY_PULSE_SCALE: 0.6,     // scale multiplier when battery pulses during charging (1.04 = 4% larger)
@@ -227,11 +235,36 @@ var CONFIG = {
         ENERGY_BEAM_ALPHA: 0.6,        // opacity of energy beam
         ENERGY_BEAM_DURATION: 300,     // ms for beam to appear and fade
         
-        GADGET_ENERGY_GLOW_ENABLED: true, // toggle energy glow around gadget during pulse
+        // Advanced Arcing Wire Effect (Lightning-style)
+        USE_ARCING_WIRE: true,         // toggle advanced arcing wire effect (overrides simple beam)
+        ARCING_WIRE_ROUGHNESS: 1.2,    // roughness of lightning arc (0.5-2.0 for spiky effect)
+        ARCING_WIRE_SEGMENTS: 15,      // number of path segments (lower = more jagged)
+        ARCING_WIRE_DISPLACEMENT_SCALE: 0.8, // how far arcs drift from wire (0.3-1.5)
+        ARCING_WIRE_JITTER_PASSES: 2,  // number of displacement passes (1-3, more = spikier)
+        ARCING_WIRE_RANDOM_OFFSET: 8,  // random perpendicular offset per segment (px)
+        ARCING_WIRE_GLOW_THICKNESS: 6, // thick glow layer (px)
+        ARCING_WIRE_MEDIUM_THICKNESS: 3, // medium bright layer (px)
+        ARCING_WIRE_CORE_THICKNESS: 1, // thin white core (px)
+        ARCING_WIRE_GLOW_COLOR: 0x00CCFF, // cyan/blue glow color
+        ARCING_WIRE_BRIGHT_COLOR: 0x00EEFF, // bright blue color
+        ARCING_WIRE_CORE_COLOR: 0xFFFFFF, // white core color
+        ARCING_WIRE_PULSE_SPEED: 2.5,  // speed multiplier for animation (not used for travel, affects flicker rate)
+        ARCING_WIRE_PULSE_DURATION: 200, // total duration of arc effect (ms) - how long arc stays visible
+        
+        GADGET_ENERGY_GLOW_ENABLED: false, // toggle energy glow around gadget during pulse
         GADGET_ENERGY_GLOW_SIZE: 20,   // size of glow halo around gadget (px)
         GADGET_ENERGY_GLOW_COLOR: 0xFFFF00, // color of energy glow
         GADGET_ENERGY_GLOW_ALPHA: 0.5, // opacity of energy glow
         GADGET_ENERGY_GLOW_DURATION: 300, // ms for glow to appear and fade
+        
+        // Advanced Gadget Aura Effect
+        USE_GADGET_AURA: true,         // toggle advanced gadget aura effect (overrides simple glow)
+        GADGET_AURA_LAYERS: 3,         // number of concentric glow layers
+        GADGET_AURA_BASE_SIZE: 30,     // base size of innermost aura layer (px)
+        GADGET_AURA_COLOR: 0x00DDFF,   // aura color
+        GADGET_AURA_PULSE_SPEED: 2.0,  // breathing speed (cycles per second)
+        GADGET_AURA_SPARK_COUNT: 8,    // number of spark particles per pulse
+        GADGET_AURA_SPARK_SPEED: 100,  // speed of sparks moving inward (px/s)
     },
 };
 
@@ -286,7 +319,8 @@ function getBatteryIconLevel(level) {
 //
 // Platform/Charger System:
 //   • Charger slot (battery holder):   130 × 130 px  (PLATFORM.SLOT_SIZE) — same as grid cell
-//   • Gadget sprite:                   115 × 115 px  (PLATFORM.GADGET_SIZE)
+//   • Debug rect (max gadget area):    200 × 115 px  (PLATFORM.DEBUG_RECT_WIDTH × DEBUG_RECT_HEIGHT)
+//   • Gadget sprite (within debug):    auto-sized    (aspect ratio preserved, centered horizontally, touching bottom)
 //   • Socket (on slot):                 40 × 40 px   (PLATFORM.SOCKET_SIZE)
 //   • Plug (on wire):                   28 × 28 px   (PLATFORM.PLUG_SIZE)
 //   • Platform stripe height:           18 px        (PLATFORM.STRIPE_HEIGHT)

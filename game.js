@@ -136,12 +136,15 @@ class GameScene extends Phaser.Scene {
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
             const cy  = P.Y_POSITIONS[i];
-            const sx  = P.SLOT_X;
             const ssz = P.SLOT_SIZE;
 
-            // Position each element above the stripe using its own gap config
-            const slotAboveY   = cy - P.STRIPE_HEIGHT / 2 - P.SLOT_ABOVE_STRIPE - ssz / 2;
-            const gadgetAboveY = cy - P.STRIPE_HEIGHT / 2 - P.GADGET_ABOVE_STRIPE - P.GADGET_SIZE / 2;
+            // Calculate slot position from left padding
+            const slotX = P.STRIPE_X + P.SLOT_PADDING_FROM_LEFT + ssz / 2;
+            const slotY = cy - P.STRIPE_HEIGHT / 2 - P.SLOT_ABOVE_STRIPE - ssz / 2;
+            
+            // Calculate debug rect position from slot right edge
+            const debugRectX = slotX + ssz / 2 + P.DEBUG_RECT_PADDING_FROM_SLOT + P.DEBUG_RECT_WIDTH / 2;
+            const debugRectY = cy - P.STRIPE_HEIGHT / 2 - P.DEBUG_RECT_PADDING_FROM_STRIPE - P.DEBUG_RECT_HEIGHT / 2;
 
             // Stripe — plain background bar, nothing drawn on it
             const stripe = this.add.graphics();
@@ -151,23 +154,23 @@ class GameScene extends Phaser.Scene {
 
             // Slot backgrounds
             const slotBg = this.add.graphics();
-            this._drawSlot(slotBg, sx, slotAboveY, ssz, false);
+            this._drawSlot(slotBg, slotX, slotY, ssz, false);
             slotBg.setDepth(3);
 
             const slotBgFilled = this.add.graphics();
-            this._drawSlot(slotBgFilled, sx, slotAboveY, ssz, true);
+            this._drawSlot(slotBgFilled, slotX, slotY, ssz, true);
             slotBgFilled.setDepth(3);
             slotBgFilled.setVisible(false);
 
             // Charge-rate label above slot (shown when a battery is present)
-            const rateTextY = slotAboveY - ssz / 2 - P.CHARGE_RATE_GAP;
-            const chargeRateText = this.add.text(sx - 2, rateTextY, '', {
+            const rateTextY = slotY - ssz / 2 - P.CHARGE_RATE_GAP;
+            const chargeRateText = this.add.text(slotX - 2, rateTextY, '', {
                 fontSize: '22px', fontFamily: CONFIG.FONT_FAMILY,
                 color: '#000000', fontStyle: 'bold',
                 stroke: '#FFFFFF', strokeThickness: 3,
             }).setOrigin(1, 0.5).setDepth(5).setVisible(false);
 
-            const chargeRateBolt = this.add.image(sx + 2, rateTextY, 'bolt')
+            const chargeRateBolt = this.add.image(slotX + 2, rateTextY, 'bolt')
                 .setDisplaySize(P.CHARGE_RATE_BOLT_SIZE, P.CHARGE_RATE_BOLT_SIZE)
                 .setOrigin(0, 0.5).setDepth(5).setVisible(false)
                 .setTint(0xFFFF00);
@@ -176,11 +179,11 @@ class GameScene extends Phaser.Scene {
                 index: i,
                 centerY: cy,
                 stripe,
-                slotX: sx, slotY: slotAboveY, slotSize: ssz,
+                slotX: slotX, slotY: slotY, slotSize: ssz,
                 slotBg, slotBgFilled,
                 chargeRateText, chargeRateBolt,
                 batterySprite: null, batteryLevelText: null,
-                gadgetX: P.GADGET_X, gadgetAboveY,
+                debugRectX: debugRectX, debugRectY: debugRectY,
                 gadgetSprite: null,
                 gadgetCapacity: 0, gadgetCurrentCharge: 0,
                 gadgetCapacityText: null, gadgetChargeText: null,
@@ -527,21 +530,30 @@ class GameScene extends Phaser.Scene {
     }
 
     /**
-     * Calculate display dimensions to fit sprite to target size while preserving aspect ratio.
-     * Scales the largest side to targetSize and adjusts the other side proportionally.
+     * Calculate display dimensions to fit sprite to target rectangle while preserving aspect ratio.
+     * Automatically constrains by width or height to maximize area within the target rect.
      * 
      * @param {Phaser.Textures.Texture} texture - The sprite texture
-     * @param {number} targetSize - The target size for the largest dimension
+     * @param {number} targetWidth - The target width
+     * @param {number} targetHeight - The target height (optional, defaults to targetWidth for square)
      * @returns {{width: number, height: number}} - Display width and height
      */
-    _getAspectFitSize(texture, targetSize) {
+    _getAspectFitSize(texture, targetWidth, targetHeight) {
         const frame = texture.get();
         const srcWidth = frame.width;
         const srcHeight = frame.height;
         
-        // Find the largest side and calculate scale factor
-        const maxSide = Math.max(srcWidth, srcHeight);
-        const scale = targetSize / maxSide;
+        // If only one parameter provided, assume square target (backward compatibility)
+        if (targetHeight === undefined) {
+            targetHeight = targetWidth;
+        }
+        
+        // Calculate scale factors for both dimensions
+        const scaleX = targetWidth / srcWidth;
+        const scaleY = targetHeight / srcHeight;
+        
+        // Use the smaller scale to fit within the rectangle while preserving aspect ratio
+        const scale = Math.min(scaleX, scaleY);
         
         // Apply scale to both dimensions to preserve aspect ratio
         return {
@@ -555,29 +567,61 @@ class GameScene extends Phaser.Scene {
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
             const p        = this.platforms[i];
-            const gx       = P.GADGET_X;
-            const gsz      = P.GADGET_SIZE;
-            const gy       = p.gadgetAboveY;   // sits above the stripe
             const capacity = gadgetData.capacity[i];
-
-            const capText = this.add.text(gx, gy - gsz / 2 - P.CAPACITY_TEXT_GAP, `${capacity}`, {
-                fontSize: '18px', fontFamily: CONFIG.FONT_FAMILY,
-                color: '#000000', fontStyle: 'bold',
-                stroke: '#FFFFFF', strokeThickness: 3,
-            }).setOrigin(0.5, 1).setDepth(5);
-
-            const normalKey = `gadget_${gadgetData.name}_normal`;
-            const gadgetSprite = this.textures.exists(normalKey)
-                ? this.add.image(gx, gy, normalKey)
-                : this.add.rectangle(gx, gy, gsz, gsz, 0x888888);
             
-            // Apply aspect-ratio-preserving scaling
-            if (this.textures.exists(normalKey)) {
-                const size = this._getAspectFitSize(this.textures.get(normalKey), gsz);
-                gadgetSprite.setDisplaySize(size.width, size.height);
-            } else {
-                gadgetSprite.setDisplaySize(gsz, gsz);
+            // Debug rect - shows the maximum area for gadget display
+            let debugRect = null;
+            if (P.DEBUG_RECT_SHOW) {
+                debugRect = this.add.rectangle(
+                    p.debugRectX, p.debugRectY, 
+                    P.DEBUG_RECT_WIDTH, P.DEBUG_RECT_HEIGHT, 
+                    P.DEBUG_RECT_COLOR, P.DEBUG_RECT_ALPHA
+                );
+                debugRect.setDepth(3.9);
             }
+
+            // Calculate actual gadget display size within debug rect bounds
+            const normalKey = `gadget_${gadgetData.name}_normal`;
+            let gadgetDisplayWidth, gadgetDisplayHeight;
+            
+            if (this.textures.exists(normalKey)) {
+                const size = this._getAspectFitSize(
+                    this.textures.get(normalKey), 
+                    P.DEBUG_RECT_WIDTH, 
+                    P.DEBUG_RECT_HEIGHT
+                );
+                gadgetDisplayWidth = size.width;
+                gadgetDisplayHeight = size.height;
+            } else {
+                gadgetDisplayWidth = P.DEBUG_RECT_WIDTH;
+                gadgetDisplayHeight = P.DEBUG_RECT_HEIGHT;
+            }
+            
+            // Gadget position: horizontally centered in debug rect, vertically touching bottom
+            const gadgetX = p.debugRectX;
+            const gadgetY = p.debugRectY + P.DEBUG_RECT_HEIGHT / 2 - gadgetDisplayHeight / 2;
+
+            // Capacity text above gadget with controllable size and gap
+            const capText = this.add.text(
+                gadgetX, 
+                gadgetY - gadgetDisplayHeight / 2 - P.CAPACITY_TEXT_GAP, 
+                `${capacity}`, 
+                {
+                    fontSize: P.CAPACITY_TEXT_SIZE, 
+                    fontFamily: CONFIG.FONT_FAMILY,
+                    color: '#000000', 
+                    fontStyle: 'bold',
+                    stroke: '#FFFFFF', 
+                    strokeThickness: 3,
+                }
+            ).setOrigin(0.5, 1).setDepth(5);
+
+            // Create gadget sprite
+            const gadgetSprite = this.textures.exists(normalKey)
+                ? this.add.image(gadgetX, gadgetY, normalKey)
+                : this.add.rectangle(gadgetX, gadgetY, gadgetDisplayWidth, gadgetDisplayHeight, 0x888888);
+            
+            gadgetSprite.setDisplaySize(gadgetDisplayWidth, gadgetDisplayHeight);
             gadgetSprite.setDepth(4);
 
             p.gadgetSprite        = gadgetSprite;
@@ -587,23 +631,27 @@ class GameScene extends Phaser.Scene {
             p.gadgetChargeText    = null;
             p.isDefeated          = false;
             p._gadgetName         = gadgetData.name;
-            p._gadgetOriginX      = gx;
-            p._gadgetOriginY      = gy;
+            p._gadgetOriginX      = gadgetX;
+            p._gadgetOriginY      = gadgetY;
+            p._gadgetDisplayWidth = gadgetDisplayWidth;
+            p._gadgetDisplayHeight= gadgetDisplayHeight;
             p._shakeActive        = false;
             p._pulseActive        = false;
             p.smokeTimer          = null;
-            p.smokePuffs          = [];  // Reset tracking arrays for new gadget
+            p.smokePuffs          = [];
             p.explosionEffects    = [];
+            p._debugRect          = debugRect;
 
             // ── Wire connection ────────────────────────────────────────────────
-            const socketX    = P.SLOT_X + P.SLOT_SIZE / 2 + P.SOCKET_GAP_RIGHT;
-            const socketY    = p.slotY;  // vertically centred with the slot
+            const socketX = p.slotX + P.SLOT_SIZE / 2 + P.SOCKET_GAP_FROM_SLOT;
+            const socketY = p.slotY;
+            
             // connection_height: fraction from bottom (0=bottom, 1=top), default 0.5 = centre
             // connection_left_padding: horizontal inset into gadget as fraction of width, default 0.1
             const connH      = gadgetData.connection_height      ?? 0.5;
             const connLPad   = gadgetData.connection_left_padding ?? 0.1;
-            const plugEndX   = gx - gsz / 2 + connLPad * gsz; // inset from left edge
-            const plugEndY   = gy + gsz / 2 - connH * gsz;    // measured from gadget bottom
+            const plugEndX   = gadgetX - gadgetDisplayWidth / 2 + connLPad * gadgetDisplayWidth;
+            const plugEndY   = gadgetY + gadgetDisplayHeight / 2 - connH * gadgetDisplayHeight;
 
             // socket behind wire; plug on top of wire; gadget (depth 4) on top of all
             const socketSprite = this.textures.exists('gadget_socket')
@@ -611,7 +659,7 @@ class GameScene extends Phaser.Scene {
                 : this.add.circle(socketX, socketY, P.SOCKET_SIZE / 2, 0x556677);
             socketSprite.setDepth(3.4);
 
-            const wireGfx = this.add.graphics().setDepth(3.55);  // over socket, under plug & gadget
+            const wireGfx = this.add.graphics().setDepth(3.55);
             // Wire: from bottom-centre of plug icon to gadget connection point
             // Extend wire upward by 6px to close gap with plug visual
             this._drawWire(wireGfx, socketX, socketY + P.PLUG_SIZE / 2 - 6, plugEndX, plugEndY);
@@ -630,31 +678,37 @@ class GameScene extends Phaser.Scene {
             p._wireEndY    = plugEndY;
 
             // ── Analog meter ──────────────────────────────────────────────────
-            // Calculate meter pivot position (unscaled coordinates)
-            const mpx = P.METER_X !== null ? P.METER_X : (P.GADGET_X + P.GADGET_SIZE / 2 + P.METER_GAP + P.METER_RADIUS);
-            const mpy = P.METER_Y !== null ? P.METER_Y : (gy + gsz / 2 + P.METER_Y_OFFSET);
+            if (P.SHOW_ANALOG_METER) {
+                // Calculate meter pivot position based on actual gadget display size
+                const mpx = gadgetX + gadgetDisplayWidth / 2 + P.METER_PADDING_FROM_GADGET + P.METER_RADIUS;
+                const mpy = gadgetY + gadgetDisplayHeight / 2 + P.METER_Y_OFFSET;
 
-            const meterBg = this.add.graphics().setDepth(4.2);
-            // Draw at full size (unscaled), then scale the entire graphics object
-            this._drawMeterBg(meterBg, 0, 0);  // Draw at origin
-            meterBg.setPosition(mpx, mpy);      // Position the pivot point
-            meterBg.setScale(P.METER_SCALE);    // Scale around the pivot
+                const meterBg = this.add.graphics().setDepth(4.2);
+                // Draw at full size (unscaled), then scale the entire graphics object
+                this._drawMeterBg(meterBg, 0, 0);  // Draw at origin
+                meterBg.setPosition(mpx, mpy);      // Position the pivot point
+                meterBg.setScale(P.METER_SCALE);    // Scale around the pivot
 
-            // Needle: thin rect, origin at pivot (bottom-centre), initial angle -90 = far-left
-            const meterNeedle = this.add.rectangle(
-                0, 0, 3, P.METER_RADIUS - 10, 0xF0F0F0)
-                .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6);
-            meterNeedle.setPosition(mpx, mpy);
-            meterNeedle.setScale(P.METER_SCALE);
+                // Needle: thin rect, origin at pivot (bottom-centre), initial angle -90 = far-left
+                const meterNeedle = this.add.rectangle(
+                    0, 0, 3, P.METER_RADIUS - 10, 0xF0F0F0)
+                    .setOrigin(0.5, 1).setAngle(-90).setDepth(4.6);
+                meterNeedle.setPosition(mpx, mpy);
+                meterNeedle.setScale(P.METER_SCALE);
 
-            // Pivot dot on top of everything
-            const meterPivot = this.add.circle(0, 0, 5, 0x223344).setDepth(4.8);
-            meterPivot.setPosition(mpx, mpy);
-            meterPivot.setScale(P.METER_SCALE);
+                // Pivot dot on top of everything
+                const meterPivot = this.add.circle(0, 0, 5, 0x223344).setDepth(4.8);
+                meterPivot.setPosition(mpx, mpy);
+                meterPivot.setScale(P.METER_SCALE);
 
-            p.meterBg     = meterBg;
-            p.meterNeedle = meterNeedle;
-            p.meterPivot  = meterPivot;
+                p.meterBg     = meterBg;
+                p.meterNeedle = meterNeedle;
+                p.meterPivot  = meterPivot;
+            } else {
+                p.meterBg     = null;
+                p.meterNeedle = null;
+                p.meterPivot  = null;
+            }
         }
     }
 
@@ -688,11 +742,11 @@ class GameScene extends Phaser.Scene {
             if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
              p.meterBg, p.meterNeedle, p.meterPivot,
-             p.wireGraphics, p.socketSprite, p.plugSprite]
+             p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect]
                 .forEach(o => { if (o) o.destroy(); });
             p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText =
             p.meterBg = p.meterNeedle = p.meterPivot = null;
-            p.wireGraphics = p.socketSprite = p.plugSprite = null;
+            p.wireGraphics = p.socketSprite = p.plugSprite = p._debugRect = null;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
             p._shakeActive = false;
@@ -823,20 +877,79 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    // ================================================================
+    // ADVANCED VFX: ARCING WIRE EFFECT (Lightning-style)
+    // ================================================================
     _animateEnergyBeam(p) {
-        // Draw a glowing beam along the wire during charge pulse
         if (!p._wireStartX || !p._wireEndX) return;
         const P = CONFIG.PLATFORM;
-        if (!P.ENERGY_BEAM_ENABLED) return;
         
+        if (P.USE_ARCING_WIRE) {
+            this._createArcingWire(p);
+        } else if (P.ENERGY_BEAM_ENABLED) {
+            this._createSimpleBeam(p);
+        }
+    }
+    
+    _createArcingWire(p) {
+        const P = CONFIG.PLATFORM;
         const x1 = p._wireStartX;
         const y1 = p._wireStartY;
         const x2 = p._wireEndX;
         const y2 = p._wireEndY;
         
-        // Calculate wire path
+        // Build wire path array
+        const wirePath = this._buildWirePath(x1, y1, x2, y2, P.ARCING_WIRE_SEGMENTS);
+        
+        // Create graphics object
+        const arcGfx = this.add.graphics().setDepth(3.6);
+        
+        // Animation state - arc vibrates in place, doesn't travel
+        const duration = P.ARCING_WIRE_PULSE_DURATION / 1000;
+        const state = {
+            time: 0,
+            duration: duration
+        };
+        
+        // Store cleanup reference
+        const updateEvent = this.time.addEvent({
+            delay: 16, // ~60fps
+            callback: () => {
+                state.time += 0.016;
+                
+                // Regenerate jagged path every frame for flickering effect
+                // Always show full wire (progress = 1.0) with vibrating spikes
+                const jaggedPath = this._applyAdvancedDisplacement(wirePath, P);
+                
+                // Clear and redraw full arc
+                arcGfx.clear();
+                this._drawLayeredArc(arcGfx, jaggedPath, 1.0); // Always full wire visible
+                
+                // Cleanup when duration complete
+                if (state.time >= state.duration) {
+                    updateEvent.remove();
+                    this.tweens.add({
+                        targets: arcGfx,
+                        alpha: 0,
+                        duration: 150,
+                        onComplete: () => arcGfx.destroy()
+                    });
+                }
+            },
+            loop: true
+        });
+        
+        // Auto-cleanup after duration
+        this.time.delayedCall(P.ARCING_WIRE_PULSE_DURATION + 200, () => {
+            if (updateEvent) updateEvent.remove();
+            if (arcGfx.scene) arcGfx.destroy();
+        });
+    }
+    
+    _buildWirePath(x1, y1, x2, y2, segments) {
+        const P = CONFIG.PLATFORM;
         const d = Math.hypot(x2 - x1, y2 - y1);
-        if (d < 1) return;
+        if (d < 1) return [[x1, y1], [x2, y2]];
         
         // Rigid vertical segment
         const rigidLen = P.WIRE_RIGID_LENGTH;
@@ -849,16 +962,126 @@ class GameScene extends Phaser.Scene {
         const cx = (rx + x2) / 2;
         const cy = (ry + y2) / 2 + sagDepth;
         
-        // Create beam graphics
+        // Build path array
+        const path = [[x1, y1], [rx, ry]];
+        
+        // Sample curved section
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments;
+            const mt = 1 - t;
+            const bx = mt * mt * rx + 2 * mt * t * cx + t * t * x2;
+            const by = mt * mt * ry + 2 * mt * t * cy + t * t * y2;
+            path.push([bx, by]);
+        }
+        
+        return path;
+    }
+    
+    _applyAdvancedDisplacement(path, P) {
+        // Apply aggressive displacement for spiky lightning effect
+        let jaggedPath = [...path];
+        
+        // Multiple passes for more jaggedness
+        for (let pass = 0; pass < P.ARCING_WIRE_JITTER_PASSES; pass++) {
+            const newPath = [jaggedPath[0]];
+            
+            for (let i = 0; i < jaggedPath.length - 1; i++) {
+                const [x1, y1] = jaggedPath[i];
+                const [x2, y2] = jaggedPath[i + 1];
+                
+                // Midpoint with aggressive random displacement
+                const mx = (x1 + x2) / 2;
+                const my = (y1 + y2) / 2;
+                const dist = Math.hypot(x2 - x1, y2 - y1);
+                const displacement = (Math.random() - 0.5) * dist * P.ARCING_WIRE_ROUGHNESS * P.ARCING_WIRE_DISPLACEMENT_SCALE;
+                
+                // Perpendicular offset for spike
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                if (length > 0) {
+                    const offsetX = -dy / length * displacement;
+                    const offsetY = dx / length * displacement;
+                    
+                    // Add random jitter to make it less smooth
+                    const jitterX = (Math.random() - 0.5) * P.ARCING_WIRE_RANDOM_OFFSET;
+                    const jitterY = (Math.random() - 0.5) * P.ARCING_WIRE_RANDOM_OFFSET;
+                    
+                    newPath.push([mx + offsetX + jitterX, my + offsetY + jitterY]);
+                }
+                newPath.push([x2, y2]);
+            }
+            
+            jaggedPath = newPath;
+        }
+        
+        return jaggedPath;
+    }
+    
+    _drawLayeredArc(gfx, path, progress) {
+        const P = CONFIG.PLATFORM;
+        
+        // Calculate visible segment based on progress
+        const visiblePoints = Math.floor(progress * path.length);
+        if (visiblePoints < 2) return;
+        
+        const visiblePath = path.slice(0, visiblePoints);
+        
+        // Layer 1: Thick semi-transparent glow (Cyan/Blue)
+        gfx.lineStyle(P.ARCING_WIRE_GLOW_THICKNESS, P.ARCING_WIRE_GLOW_COLOR, 0.3);
+        gfx.beginPath();
+        gfx.moveTo(visiblePath[0][0], visiblePath[0][1]);
+        for (let i = 1; i < visiblePath.length; i++) {
+            gfx.lineTo(visiblePath[i][0], visiblePath[i][1]);
+        }
+        gfx.strokePath();
+        
+        // Layer 2: Medium bright blue stroke
+        gfx.lineStyle(P.ARCING_WIRE_MEDIUM_THICKNESS, P.ARCING_WIRE_BRIGHT_COLOR, 0.8);
+        gfx.beginPath();
+        gfx.moveTo(visiblePath[0][0], visiblePath[0][1]);
+        for (let i = 1; i < visiblePath.length; i++) {
+            gfx.lineTo(visiblePath[i][0], visiblePath[i][1]);
+        }
+        gfx.strokePath();
+        
+        // Layer 3: Thin white core
+        gfx.lineStyle(P.ARCING_WIRE_CORE_THICKNESS, P.ARCING_WIRE_CORE_COLOR, 1.0);
+        gfx.beginPath();
+        gfx.moveTo(visiblePath[0][0], visiblePath[0][1]);
+        for (let i = 1; i < visiblePath.length; i++) {
+            gfx.lineTo(visiblePath[i][0], visiblePath[i][1]);
+        }
+        gfx.strokePath();
+    }
+    
+    _createSimpleBeam(p) {
+        // Fallback simple beam (original implementation)
+        const P = CONFIG.PLATFORM;
+        const x1 = p._wireStartX;
+        const y1 = p._wireStartY;
+        const x2 = p._wireEndX;
+        const y2 = p._wireEndY;
+        
+        const d = Math.hypot(x2 - x1, y2 - y1);
+        if (d < 1) return;
+        
+        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rx = x1;
+        const ry = y1 + rigidLen;
+        
+        const excess = Math.max(0, d * P.WIRE_SAG_PERCENT / 100 - d);
+        const sagDepth = Math.sqrt(0.75 * d * excess);
+        const cx = (rx + x2) / 2;
+        const cy = (ry + y2) / 2 + sagDepth;
+        
         const beam = this.add.graphics().setDepth(3.5).setAlpha(0);
         beam.lineStyle(P.ENERGY_BEAM_THICKNESS, P.ENERGY_BEAM_COLOR, P.ENERGY_BEAM_ALPHA);
         
-        // Draw the beam path - approximate quadratic bezier with line segments
         beam.beginPath();
         beam.moveTo(x1, y1);
         beam.lineTo(rx, ry);
         
-        // Draw curved section with multiple line segments (smooth approximation)
         const segments = 20;
         for (let i = 0; i <= segments; i++) {
             const t = i / segments;
@@ -869,7 +1092,6 @@ class GameScene extends Phaser.Scene {
         }
         beam.strokePath();
         
-        // Fade in and out
         this.tweens.add({
             targets: beam,
             alpha: P.ENERGY_BEAM_ALPHA,
@@ -887,7 +1109,111 @@ class GameScene extends Phaser.Scene {
         });
     }
     
+    // ================================================================
+    // ADVANCED VFX: GADGET AURA EFFECT
+    // ================================================================
     _animateGadgetGlow(p) {
+        if (!p.gadgetSprite) return;
+        const P = CONFIG.PLATFORM;
+        
+        if (P.USE_GADGET_AURA) {
+            this._createGadgetAura(p);
+        } else if (P.GADGET_ENERGY_GLOW_ENABLED) {
+            this._createSimpleGlow(p);
+        }
+    }
+    
+    _createGadgetAura(p) {
+        const P = CONFIG.PLATFORM;
+        const gx = p._gadgetOriginX;
+        const gy = p._gadgetOriginY;
+        
+        // Create container for aura layers
+        const auraLayers = [];
+        const maxDim = Math.max(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
+        const baseSize = maxDim / 2 + P.GADGET_AURA_BASE_SIZE;
+        
+        // Create concentric glow layers
+        for (let i = 0; i < P.GADGET_AURA_LAYERS; i++) {
+            const layerSize = baseSize + (i * 15);
+            const layer = this.add.circle(gx, gy, layerSize, P.GADGET_AURA_COLOR, 0).setDepth(4.0 + i * 0.1);
+            auraLayers.push(layer);
+        }
+        
+        // Animation state
+        const state = {
+            time: 0,
+            duration: 1.5 // Total effect duration
+        };
+        
+        // Breathing animation with sine wave
+        const updateEvent = this.time.addEvent({
+            delay: 16,
+            callback: () => {
+                state.time += 0.016;
+                const progress = state.time / state.duration;
+                const pulsePhase = state.time * P.GADGET_AURA_PULSE_SPEED * Math.PI * 2;
+                const pulseValue = (Math.sin(pulsePhase) + 1) / 2; // 0 to 1
+                
+                // Update each layer
+                auraLayers.forEach((layer, i) => {
+                    const phaseOffset = i * 0.3;
+                    const layerPulse = (Math.sin(pulsePhase + phaseOffset) + 1) / 2;
+                    const baseAlpha = 0.4 - (i * 0.1);
+                    layer.setAlpha(baseAlpha * layerPulse * (1 - progress));
+                    
+                    const baseSize = maxDim / 2 + P.GADGET_AURA_BASE_SIZE + (i * 15);
+                    layer.setRadius(baseSize * (1 + layerPulse * 0.2));
+                });
+                
+                // Cleanup when complete
+                if (progress >= 1) {
+                    updateEvent.remove();
+                    auraLayers.forEach(layer => layer.destroy());
+                }
+            },
+            loop: true
+        });
+        
+        // Spawn electric sparks (reuse maxDim from function scope)
+        this._spawnElectricSparks(gx, gy, maxDim / 2);
+        
+        // Auto-cleanup
+        this.time.delayedCall(state.duration * 1000, () => {
+            if (updateEvent) updateEvent.remove();
+            auraLayers.forEach(layer => { if (layer.scene) layer.destroy(); });
+        });
+    }
+    
+    _spawnElectricSparks(cx, cy, radius) {
+        const P = CONFIG.PLATFORM;
+        const sparkCount = P.GADGET_AURA_SPARK_COUNT;
+        
+        for (let i = 0; i < sparkCount; i++) {
+            const angle = (i / sparkCount) * Math.PI * 2 + Math.random() * 0.5;
+            const startRadius = radius + 40;
+            const sx = cx + Math.cos(angle) * startRadius;
+            const sy = cy + Math.sin(angle) * startRadius;
+            
+            // Create spark
+            const spark = this.add.circle(sx, sy, 2, 0xFFFFFF, 0.9).setDepth(4.5);
+            
+            // Animate toward center
+            const duration = (800 + Math.random() * 400);
+            this.tweens.add({
+                targets: spark,
+                x: cx + Math.cos(angle) * (radius * 0.5),
+                y: cy + Math.sin(angle) * (radius * 0.5),
+                radius: 0.5,
+                alpha: 0,
+                duration: duration,
+                ease: 'Cubic.easeIn',
+                onComplete: () => spark.destroy()
+            });
+        }
+    }
+    
+    _createSimpleGlow(p) {
         // Add glowing halo around gadget during charge pulse
         if (!p.gadgetSprite) return;
         const P = CONFIG.PLATFORM;
@@ -897,7 +1223,8 @@ class GameScene extends Phaser.Scene {
         const gy = p._gadgetOriginY;
         
         // Create glow circle around gadget
-        const glowSize = P.GADGET_SIZE / 2 + P.GADGET_ENERGY_GLOW_SIZE;
+        const maxDim = Math.max(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
+        const glowSize = maxDim / 2 + P.GADGET_ENERGY_GLOW_SIZE;
         const glow = this.add.circle(gx, gy, glowSize, P.GADGET_ENERGY_GLOW_COLOR, 0).setDepth(4.1);
         
         // Fade in and out with slight scale pulse
@@ -1036,10 +1363,10 @@ class GameScene extends Phaser.Scene {
                         p.gadgetSprite.setScale(1);
                         // Apply aspect-ratio-preserving scaling for burned out sprite
                         if (this.textures.exists(burnedKey)) {
-                            const size = this._getAspectFitSize(this.textures.get(burnedKey), P.GADGET_SIZE);
+                            const size = this._getAspectFitSize(this.textures.get(burnedKey), p._gadgetDisplayWidth, p._gadgetDisplayHeight);
                             p.gadgetSprite.setDisplaySize(size.width, size.height);
                         } else {
-                            p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                            p.gadgetSprite.setDisplaySize(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
                         }
                         p.gadgetSprite.setAlpha(1);
                         p.isDefeated = true;
@@ -1064,6 +1391,20 @@ class GameScene extends Phaser.Scene {
                                         p.smokePuffs = [];
                                     }
                                     
+                                    // Clean up wire, plug, socket, meter if still present
+                                    const cleanupItems = [
+                                        p.wireGraphics, p.plugSprite, p.socketSprite,
+                                        p.meterBg, p.meterNeedle, p.meterPivot
+                                    ].filter(Boolean);
+                                    cleanupItems.forEach(item => {
+                                        if (item.scene) {
+                                            this.tweens.killTweensOf(item);
+                                            item.destroy();
+                                        }
+                                    });
+                                    p.wireGraphics = p.plugSprite = p.socketSprite = null;
+                                    p.meterBg = p.meterNeedle = p.meterPivot = null;
+                                    
                                     // Fade out the burnedout sprite
                                     this.tweens.add({
                                         targets: p.gadgetSprite,
@@ -1083,7 +1424,8 @@ class GameScene extends Phaser.Scene {
                         
                         // CODE EXPLOSION - Radial rings and burst lines
                         if (P.USE_CODE_EXPLOSION) {
-                            const spriteRadius = P.GADGET_SIZE / 2;
+                            const maxDim = Math.max(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
+                            const spriteRadius = maxDim / 2;
                             const maxRadius = spriteRadius * 1.5; // 150% of sprite radius
                             const numRings = 4;
                             const colors = [0xFFFFAA, 0xFFDD77, 0xFFAA44, 0xFF8822];
@@ -1209,10 +1551,10 @@ class GameScene extends Phaser.Scene {
                 p.gadgetSprite.setAlpha(1);
                 // Apply aspect-ratio-preserving scaling
                 if (this.textures.exists(burnedKey)) {
-                    const size = this._getAspectFitSize(this.textures.get(burnedKey), P.GADGET_SIZE);
+                    const size = this._getAspectFitSize(this.textures.get(burnedKey), p._gadgetDisplayWidth, p._gadgetDisplayHeight);
                     p.gadgetSprite.setDisplaySize(size.width, size.height);
                 } else {
-                    p.gadgetSprite.setDisplaySize(P.GADGET_SIZE, P.GADGET_SIZE);
+                    p.gadgetSprite.setDisplaySize(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
                 }
                 p.gadgetSprite.setPosition(ex, ey);
                 p.isDefeated = true;
@@ -1236,6 +1578,20 @@ class GameScene extends Phaser.Scene {
                                 }
                                 p.smokePuffs = [];
                             }
+                            
+                            // Clean up wire, plug, socket, meter if still present
+                            const cleanupItems = [
+                                p.wireGraphics, p.plugSprite, p.socketSprite,
+                                p.meterBg, p.meterNeedle, p.meterPivot
+                            ].filter(Boolean);
+                            cleanupItems.forEach(item => {
+                                if (item.scene) {
+                                    this.tweens.killTweensOf(item);
+                                    item.destroy();
+                                }
+                            });
+                            p.wireGraphics = p.plugSprite = p.socketSprite = null;
+                            p.meterBg = p.meterNeedle = p.meterPivot = null;
                             
                             // Fade out the burnedout sprite
                             this.tweens.add({
