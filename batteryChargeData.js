@@ -29,9 +29,22 @@
 
 var BATTERY_DATA = [
     // Level 1-10: Small batteries
-    { level: 1,  fileName: 'battery_1.png',  displayName: 'Battery 1',  chargePerMinute: 5 },
-    { level: 2,  fileName: 'battery_2.png',  displayName: 'Battery 2',  chargePerMinute: 7 },
-    { level: 3,  fileName: 'battery_3.png',  displayName: 'Battery 3',  chargePerMinute: 11 },
+
+
+     { level: 1,  fileName: 'jars_1.png',  displayName: 'Jars',  chargePerMinute: 16 },
+    { level: 5,  fileName: 'jars_2.png',  displayName: 'Jars',  chargePerMinute: 25 },
+    { level: 6,  fileName: 'jars_3.png',  displayName: 'Jars',  chargePerMinute: 37 },
+
+
+    { level: 1,  fileName: 'battery_1.png',  displayName: 'Icon',  chargePerMinute: 5 },
+    { level: 2,  fileName: 'battery_2.png',  displayName: 'Icon',  chargePerMinute: 7 },
+    { level: 3,  fileName: 'battery_3.png',  displayName: 'Icon',  chargePerMinute: 11 },
+
+
+    { level: 4,  fileName: 'octopus_1.png',  displayName: 'Octopus',  chargePerMinute: 16 },
+    { level: 5,  fileName: 'octopus_2.png',  displayName: 'Octopus',  chargePerMinute: 25 },
+    { level: 6,  fileName: 'octopus_3.png',  displayName: 'Octopus',  chargePerMinute: 37 },
+ 
  
     { level: 4,  fileName: 'test_tube_1.png',  displayName: 'Test Tube',  chargePerMinute: 16 },
     { level: 5,  fileName: 'test_tube_2.png',  displayName: 'Test Tube',  chargePerMinute: 25 },
