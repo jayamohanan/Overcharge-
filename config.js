@@ -292,7 +292,8 @@ async function initBatteryImagePaths() {
         const info = BATTERY_DATA[i];
         const path = `graphics/battery/${info.fileName}`;
         const ok   = await checkFileExists(path);
-        if (ok) BATTERY_IMAGE_PATHS[info.level] = path;
+        // Battery level is array index + 1 (index 0 = level 1, index 1 = level 2, etc.)
+        if (ok) BATTERY_IMAGE_PATHS[i + 1] = path;
     }
     console.log(`Loaded ${Object.keys(BATTERY_IMAGE_PATHS).length} battery sprites`);
 }

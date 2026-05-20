@@ -43,6 +43,70 @@ var BATTERY_DATA = [
     { fileName: 'jars_2.png',  displayName: 'Jars',  chargePerMinute: 25 },
     { fileName: 'jars_3.png',  displayName: 'Jars',  chargePerMinute: 37 },
 
+    { fileName: 'scissor_1.png',  displayName: 'Scissors',  chargePerMinute: 16 },
+    { fileName: 'scissor_2.png',  displayName: 'Scissors',  chargePerMinute: 25 },
+    { fileName: 'scissor_3.png',  displayName: 'Scissors',  chargePerMinute: 37 },
+
+     { fileName: 'feather_1.png',  displayName: 'Feather',  chargePerMinute: 16 },
+    { fileName: 'feather_2.png',  displayName: 'Feather',  chargePerMinute: 25 },
+    { fileName: 'feather_3.png',  displayName: 'Feather',  chargePerMinute: 37 },
+
+     { fileName: 'book_1.png',  displayName: 'Book',  chargePerMinute: 16 },
+    { fileName: 'book_2.png',  displayName: 'Book',  chargePerMinute: 25 },
+    { fileName: 'book_3.png',  displayName: 'Book',  chargePerMinute: 37 },
+
+     { fileName: 'clock_1.png',  displayName: 'Clock',  chargePerMinute: 16 },
+    { fileName: 'clock_2.png',  displayName: 'Clock',  chargePerMinute: 25 },
+    { fileName: 'clock_3.png',  displayName: 'Clock`',  chargePerMinute: 37 },
+
+     { fileName: 'piggy_bank_1.png',  displayName: 'Piggy Bank',  chargePerMinute: 16 },
+    { fileName: 'piggy_bank_2.png',  displayName: 'Piggy Bank',  chargePerMinute: 25 },
+    { fileName: 'piggy_bank_3.png',  displayName: 'Piggy Bank',  chargePerMinute: 37 },
+
+    { fileName: 'heart_1.png',  displayName: 'Heart',  chargePerMinute: 16 },
+    { fileName: 'heart_2.png',  displayName: 'Heart',  chargePerMinute: 25 },
+    { fileName: 'heart_3.png',  displayName: 'Heart',  chargePerMinute: 37 },
+
+    { fileName: 'apple_1.png',  displayName: 'Apple',  chargePerMinute: 16 },
+    { fileName: 'apple_2.png',      displayName: 'Apple',  chargePerMinute: 25 },
+    { fileName: 'apple_3.png',  displayName: 'Apple',  chargePerMinute: 37 },
+    
+     { fileName: 'star_1.png',  displayName: 'Star',  chargePerMinute: 16 },
+    { fileName: 'star_2.png',  displayName: 'Star',  chargePerMinute: 25 },
+    { fileName: 'star_3.png',  displayName: 'Star',  chargePerMinute: 37 },
+
+    { fileName: 'frog_1.png',  displayName: 'Frog',  chargePerMinute: 16 },
+    { fileName: 'frog_2.png',  displayName: 'Frog',  chargePerMinute: 25 },
+    { fileName: 'frog_3.png',  displayName: 'Frog',  chargePerMinute: 37 },
+
+    { fileName: 'solar_1.png',  displayName: 'Solar',  chargePerMinute: 16 },
+    { fileName: 'solar_2.png',  displayName: 'Solar',  chargePerMinute: 25 },
+    { fileName: 'solar_3.png',  displayName: 'Solar',  chargePerMinute: 37 },
+
+
+    { fileName: 'shield_1.png',  displayName: 'Shield',  chargePerMinute: 16 },
+    { fileName: 'shield_2.png',  displayName: 'Shield',  chargePerMinute: 25 },
+    { fileName: 'shield_3.png',  displayName: 'Shield',  chargePerMinute: 37 },
+
+    { fileName: 'burger_1.png',  displayName: 'Burger',  chargePerMinute: 16 },
+    { fileName: 'burger_2.png',  displayName: 'Burger',  chargePerMinute: 25 },
+    { fileName: 'burger_3.png',  displayName: 'Burger',  chargePerMinute: 37 },
+
+    { fileName: 'dove_1.png',  displayName: 'Dove',  chargePerMinute: 16 },
+    { fileName: 'dove_2.png',  displayName: 'Dove',  chargePerMinute: 25 },
+    { fileName: 'dove_3.png',  displayName: 'Dove',  chargePerMinute: 37 },
+
+
+
+
+
+
+
+
+
+
+
+
     { fileName: 'battery_1.png',  displayName: 'Icon',  chargePerMinute: 5 },
     { fileName: 'battery_2.png',  displayName: 'Icon',  chargePerMinute: 7 },
     { fileName: 'battery_3.png',  displayName: 'Icon',  chargePerMinute: 11 },
