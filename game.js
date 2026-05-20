@@ -62,13 +62,13 @@ class GameScene extends Phaser.Scene {
             this.load.image(`explosion_${String(i).padStart(2, '0')}`, `graphics/explosion/explosion_${String(i).padStart(2, '0')}.png`);
         }
         
-        this.load.json('levels', 'levels.json');
-        this.load.on('filecomplete-json-levels', (_key, _type, data) => {
-            (data.gadgets || []).forEach(g => {
-                this.load.image(`gadget_${g.name}_normal`,   `graphics/gadgets/${g.normal_sprite}`);
+        // Load gadget sprites from gadgetData.js
+        if (typeof GADGET_SPRITES !== 'undefined' && GADGET_SPRITES) {
+            GADGET_SPRITES.forEach(g => {
+                this.load.image(`gadget_${g.name}_normal`, `graphics/gadgets/${g.normal_sprite}`);
                 this.load.image(`gadget_${g.name}_burnedout`, `graphics/gadgets/${g.burnedout_sprite}`);
             });
-        });
+        }
     }
 
     // ================================================================
@@ -103,9 +103,19 @@ class GameScene extends Phaser.Scene {
             repeat: 0
         });
 
-        // Load gadget data
-        const levelsCache = this.cache.json.get('levels');
-        this.gadgetsData = (levelsCache && levelsCache.gadgets) ? levelsCache.gadgets : [];
+        // Load gadget data from gadgetData.js
+        if (typeof GADGET_SPRITES !== 'undefined' && GADGET_SPRITES) {
+            this.gadgetsData = GADGET_SPRITES.map((sprite, index) => {
+                const level = index + 1;
+                const capacity = getGadgetCapacity(level) || [200, 250, 300];
+                return {
+                    ...sprite,
+                    capacity: capacity
+                };
+            });
+        } else {
+            this.gadgetsData = [];
+        }
 
         // Top half — platforms
         this.createPlatforms();

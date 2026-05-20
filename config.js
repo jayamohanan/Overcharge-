@@ -284,16 +284,26 @@ function checkFileExists(url) {
 }
 
 async function initBatteryImagePaths() {
-    if (typeof BATTERY_DATA === 'undefined' || !BATTERY_DATA) {
-        console.error('BATTERY_DATA not found! Make sure batteryChargeData.js is loaded first.');
+    if (typeof BATTERY_TYPES === 'undefined' || !BATTERY_TYPES) {
+        console.error('BATTERY_TYPES not found! Make sure batteryChargeData.js is loaded first.');
         return;
     }
-    for (let i = 0; i < BATTERY_DATA.length; i++) {
-        const info = BATTERY_DATA[i];
-        const path = `graphics/battery/${info.fileName}`;
-        const ok   = await checkFileExists(path);
-        // Battery level is array index + 1 (index 0 = level 1, index 1 = level 2, etc.)
-        if (ok) BATTERY_IMAGE_PATHS[i + 1] = path;
+    
+    // Get all battery levels from the new system
+    const highestLevel = getHighestBatteryLevel();
+    
+    for (let level = 1; level <= highestLevel; level++) {
+        const batteryData = getBatteryData(level);
+        if (!batteryData) continue;
+        
+        const path = `graphics/battery/${batteryData.fileName}`;
+        const ok = await checkFileExists(path);
+        
+        if (ok) {
+            BATTERY_IMAGE_PATHS[level] = path;
+        } else {
+            console.warn(`Battery image not found: ${path} for level ${level} (${batteryData.displayName})`);
+        }
     }
     console.log(`Loaded ${Object.keys(BATTERY_IMAGE_PATHS).length} battery sprites`);
 }
