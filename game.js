@@ -1801,7 +1801,7 @@ class GameScene extends Phaser.Scene {
 
     updateBatteryUnlockDisplay(batteryLevel) {
         if (!this.unlockDisplayContainer || !this.unlockDisplayText) return;
-        const bd = BATTERY_DATA.find(b => b.level === batteryLevel);
+        const bd = getBatteryData(batteryLevel);
         if (!bd || !bd.displayName) return;
         this.unlockDisplayText.setText(`${bd.displayName} Battery`);
         if (CONFIG.BATTERY_UNLOCK_DISPLAY.SHOW_BATTERY_ICON && this.unlockDisplayBatteryIcon) {

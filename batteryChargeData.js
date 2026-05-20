@@ -3,10 +3,18 @@
  * 
  * This file contains all battery definitions for the game.
  * Each battery has:
- * - level: The battery level (1, 2, 3, etc.)
  * - fileName: The sprite file name (can be ANY name like lamp_1.png, suitcase_1.png, etc.)
- * - displayName: The name shown to players (optional, defaults to "Battery {level}")
+ * - displayName: The name shown to players (e.g., "Lamp", "Suitcase", etc.)
  * - chargePerMinute: The charge value this battery produces per minute
+ * 
+ * IMPORTANT: Battery level is determined by array index
+ * - Index 0 = Level 1 battery
+ * - Index 1 = Level 2 battery
+ * - Index 2 = Level 3 battery
+ * - And so on...
+ * 
+ * This makes it easy to reorder batteries - just move them in the array!
+ * No need to update level numbers when reordering.
  * 
  * All sprite files should be placed in: graphics/battery/
  * For example: graphics/battery/lamp_1.png, graphics/battery/suitcase_1.png
@@ -15,64 +23,61 @@
  * 
  * EXAMPLES:
  * 
- * Want to use a lamp for level 1?
- *   { level: 1, fileName: 'lamp_1.png', displayName: 'Desk Lamp', chargePerMinute: 5 }
+ * Want to use a lamp for level 1? Put it at index 0:
+ *   { fileName: 'lamp_1.png', displayName: 'Desk Lamp', chargePerMinute: 5 }
  * 
- * Want to skip level 2 and use a flashlight for level 3?
- *   { level: 3, fileName: 'flashlight_blue.png', displayName: 'Blue Flashlight', chargePerMinute: 11 }
+ * Want to use a flashlight for level 3? Put it at index 2:
+ *   { fileName: 'flashlight_blue.png', displayName: 'Blue Flashlight', chargePerMinute: 11 }
  * 
- * Want to use a suitcase for level 4?
- *   { level: 4, fileName: 'suitcase_1.png', displayName: 'Travel Battery', chargePerMinute: 16 }
+ * Want to use a suitcase for level 4? Put it at index 3:
+ *   { fileName: 'suitcase_1.png', displayName: 'Travel Battery', chargePerMinute: 16 }
  * 
  * The fileName can be ANYTHING - no need to follow Battery1.png, Battery2.png pattern!
  */
 
 var BATTERY_DATA = [
-    // Level 1-10: Small batteries
+    // Array index determines battery level (index 0 = level 1, index 1 = level 2, etc.)
+    // This makes it easy to reorder batteries without changing level numbers
 
+    { fileName: 'jars_1.png',  displayName: 'Jars',  chargePerMinute: 16 },
+    { fileName: 'jars_2.png',  displayName: 'Jars',  chargePerMinute: 25 },
+    { fileName: 'jars_3.png',  displayName: 'Jars',  chargePerMinute: 37 },
 
-     { level: 1,  fileName: 'jars_1.png',  displayName: 'Jars',  chargePerMinute: 16 },
-    { level: 5,  fileName: 'jars_2.png',  displayName: 'Jars',  chargePerMinute: 25 },
-    { level: 6,  fileName: 'jars_3.png',  displayName: 'Jars',  chargePerMinute: 37 },
+    { fileName: 'battery_1.png',  displayName: 'Icon',  chargePerMinute: 5 },
+    { fileName: 'battery_2.png',  displayName: 'Icon',  chargePerMinute: 7 },
+    { fileName: 'battery_3.png',  displayName: 'Icon',  chargePerMinute: 11 },
 
-
-    { level: 1,  fileName: 'battery_1.png',  displayName: 'Icon',  chargePerMinute: 5 },
-    { level: 2,  fileName: 'battery_2.png',  displayName: 'Icon',  chargePerMinute: 7 },
-    { level: 3,  fileName: 'battery_3.png',  displayName: 'Icon',  chargePerMinute: 11 },
-
-
-    { level: 4,  fileName: 'octopus_1.png',  displayName: 'Octopus',  chargePerMinute: 16 },
-    { level: 5,  fileName: 'octopus_2.png',  displayName: 'Octopus',  chargePerMinute: 25 },
-    { level: 6,  fileName: 'octopus_3.png',  displayName: 'Octopus',  chargePerMinute: 37 },
+    { fileName: 'octopus_1.png',  displayName: 'Octopus',  chargePerMinute: 16 },
+    { fileName: 'octopus_2.png',  displayName: 'Octopus',  chargePerMinute: 25 },
+    { fileName: 'octopus_3.png',  displayName: 'Octopus',  chargePerMinute: 37 },
  
+    { fileName: 'test_tube_1.png',  displayName: 'Test Tube',  chargePerMinute: 16 },
+    { fileName: 'test_tube_2.png',  displayName: 'Test Tube',  chargePerMinute: 25 },
+    { fileName: 'test_tube_3.png',  displayName: 'Test Tube',  chargePerMinute: 37 },
  
-    { level: 4,  fileName: 'test_tube_1.png',  displayName: 'Test Tube',  chargePerMinute: 16 },
-    { level: 5,  fileName: 'test_tube_2.png',  displayName: 'Test Tube',  chargePerMinute: 25 },
-    { level: 6,  fileName: 'test_tube_3.png',  displayName: 'Test Tube',  chargePerMinute: 37 },
+    { fileName: 'jar_1.png',  displayName: 'Jar',  chargePerMinute: 56 },
+    { fileName: 'jar_2.png',  displayName: 'Jar',  chargePerMinute: 85 },
+    { fileName: 'jar_3.png',  displayName: 'Jar',  chargePerMinute: 128 },
  
-    { level: 7,  fileName: 'jar_1.png',  displayName: 'Jar',  chargePerMinute: 56 },
-    { level: 8,  fileName: 'jar_2.png',  displayName: 'Jar',  chargePerMinute: 85 },
-    { level: 9,  fileName: 'jar_3.png',  displayName: 'Jar',  chargePerMinute: 128 },
- 
-    { level: 10, fileName: 'jug_1.png', displayName: 'Jug', chargePerMinute: 192 },
-    { level: 11, fileName: 'jug_2.png', displayName: 'Jug', chargePerMinute: 288 },
-    { level: 12, fileName: 'jug_3.png', displayName: 'Jug', chargePerMinute: 432 },
+    { fileName: 'jug_1.png', displayName: 'Jug', chargePerMinute: 192 },
+    { fileName: 'jug_2.png', displayName: 'Jug', chargePerMinute: 288 },
+    { fileName: 'jug_3.png', displayName: 'Jug', chargePerMinute: 432 },
 
-    { level: 13, fileName: 'mango_1.png', displayName: 'Mango', chargePerMinute: 648 },
-    { level: 14, fileName: 'mango_2.png', displayName: 'Mango', chargePerMinute: 973 },
-    { level: 15, fileName: 'mango_3.png', displayName: 'Mango', chargePerMinute: 1459 },
+    { fileName: 'mango_1.png', displayName: 'Mango', chargePerMinute: 648 },
+    { fileName: 'mango_2.png', displayName: 'Mango', chargePerMinute: 973 },
+    { fileName: 'mango_3.png', displayName: 'Mango', chargePerMinute: 1459 },
     
-    { level: 16, fileName: 'suitcase_1.png', displayName: 'Suitcase', chargePerMinute: 2189 },
-    { level: 17, fileName: 'suitcase_2.png', displayName: 'Suitcase', chargePerMinute: 3284 },
-    { level: 18, fileName: 'suitcase_3.png', displayName: 'Suitcase', chargePerMinute: 4926 },
+    { fileName: 'suitcase_1.png', displayName: 'Suitcase', chargePerMinute: 2189 },
+    { fileName: 'suitcase_2.png', displayName: 'Suitcase', chargePerMinute: 3284 },
+    { fileName: 'suitcase_3.png', displayName: 'Suitcase', chargePerMinute: 4926 },
     
-    { level: 19, fileName: 'briefcase_1.png', displayName: 'Briefcase', chargePerMinute: 7389 },
-    { level: 20, fileName: 'briefcase_2.png', displayName: 'Briefcase', chargePerMinute: 11084 },
-    { level: 21, fileName: 'briefcase_3.png', displayName: 'Briefcase', chargePerMinute: 16626 },
+    { fileName: 'briefcase_1.png', displayName: 'Briefcase', chargePerMinute: 7389 },
+    { fileName: 'briefcase_2.png', displayName: 'Briefcase', chargePerMinute: 11084 },
+    { fileName: 'briefcase_3.png', displayName: 'Briefcase', chargePerMinute: 16626 },
 
-    { level: 22, fileName: 'lamp_1.png', displayName: 'Lamp', chargePerMinute: 24939 },
-    { level: 23, fileName: 'lamp_2.png', displayName: 'Lamp', chargePerMinute: 37409 },
-    { level: 24, fileName: 'lamp_3.png', displayName: 'Lamp', chargePerMinute: 56113 },
+    { fileName: 'lamp_1.png', displayName: 'Lamp', chargePerMinute: 24939 },
+    { fileName: 'lamp_2.png', displayName: 'Lamp', chargePerMinute: 37409 },
+    { fileName: 'lamp_3.png', displayName: 'Lamp', chargePerMinute: 56113 },
     
     // { level: 25, fileName: 'Battery25.png', displayName: 'Battery 25', chargePerMinute: 84170 },
     // { level: 26, fileName: 'Battery26.png', displayName: 'Battery 26', chargePerMinute: 126000 },
@@ -181,35 +186,36 @@ var BATTERY_DATA = [
 // HELPER FUNCTIONS - Used by the game code
 // ==================================================================================
 
-// Create lookup tables for fast access
+// Create lookup tables for fast access (using array index as level)
 var BATTERY_DATA_BY_LEVEL = {};
 var BATTERY_CHARGE_TABLE = {}; // Legacy compatibility
 
-BATTERY_DATA.forEach(battery => {
-    BATTERY_DATA_BY_LEVEL[battery.level] = battery;
-    BATTERY_CHARGE_TABLE[battery.level] = battery.chargePerMinute; // Legacy compatibility
+BATTERY_DATA.forEach((battery, index) => {
+    const level = index + 1; // Array index 0 = level 1
+    BATTERY_DATA_BY_LEVEL[level] = battery;
+    BATTERY_CHARGE_TABLE[level] = battery.chargePerMinute; // Legacy compatibility
 });
 
-// Get battery data by level
+// Get battery data by level (level 1 = index 0, level 2 = index 1, etc.)
 function getBatteryData(level) {
-    return BATTERY_DATA_BY_LEVEL[level] || null;
+    return BATTERY_DATA[level - 1] || null;
 }
 
 // Get battery file name by level
 function getBatteryFileName(level) {
-    const data = BATTERY_DATA_BY_LEVEL[level];
+    const data = getBatteryData(level);
     return data ? data.fileName : null;
 }
 
 // Get battery display name by level
 function getBatteryDisplayName(level) {
-    const data = BATTERY_DATA_BY_LEVEL[level];
+    const data = getBatteryData(level);
     return data ? data.displayName : `Battery ${level}`;
 }
 
 // Get charge value for a battery level (legacy compatibility)
 function getBatteryChargeValue(level) {
-    const data = BATTERY_DATA_BY_LEVEL[level];
+    const data = getBatteryData(level);
     if (data) {
         return data.chargePerMinute;
     }
@@ -219,10 +225,10 @@ function getBatteryChargeValue(level) {
 
 // Get the highest available battery level
 function getHighestBatteryLevel() {
-    return BATTERY_DATA.length > 0 ? BATTERY_DATA[BATTERY_DATA.length - 1].level : 1;
+    return BATTERY_DATA.length;
 }
 
 // Get all battery levels that have data defined
 function getAllBatteryLevels() {
-    return BATTERY_DATA.map(battery => battery.level);
+    return BATTERY_DATA.map((battery, index) => index + 1);
 }
