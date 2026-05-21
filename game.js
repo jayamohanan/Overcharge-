@@ -1367,6 +1367,12 @@ class GameScene extends Phaser.Scene {
                     
                     // Swap sprite at peak shake (shake 3)
                     if (shakeCount === 3) {
+                        // Spawn coins behind the gadget sprite
+                        if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                            const totalDelay = P.BURNEDOUT_DISPLAY_DURATION + P.BURNEDOUT_FADE_DURATION + CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
+                            this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+                        }
+                        
                         // Switch texture mid-shake for continuity
                         p.gadgetSprite.setTexture(burnedKey);
                         p.gadgetSprite.setTint(0xffffff);
@@ -1557,6 +1563,12 @@ class GameScene extends Phaser.Scene {
                 
             } else {
                 // Fallback: darken in place
+                // Spawn coins behind the gadget sprite
+                if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                    const totalDelay = P.BURNEDOUT_DISPLAY_DURATION + P.BURNEDOUT_FADE_DURATION + CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
+                    this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+                }
+                
                 p.gadgetSprite.setTint(0x444444);
                 p.gadgetSprite.setAlpha(1);
                 // Apply aspect-ratio-preserving scaling
@@ -1621,6 +1633,12 @@ class GameScene extends Phaser.Scene {
                 }
             }
         } else {
+            // No gadget sprite - spawn coins immediately with short delay
+            if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                const totalDelay = CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
+                this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+            }
+            
             p.isDefeated = true;
             p._shakeActive = false;
             p._pulseActive = false;
@@ -2436,26 +2454,41 @@ class GameScene extends Phaser.Scene {
         this.updateSpawnButton();
     }
 
-    animateCoinReward(startX, startY, amount) {
+    animateCoinReward(startX, startY, amount, delayBeforeFly = 0) {
         const C   = CONFIG.COIN_REWARD_ANIMATION;
         const tX  = this.coinIcon.x, tY = this.coinIcon.y;
         let done  = 0;
+        
+        // Spawn all coins immediately at the gadget position behind the sprite
+        const coins = [];
         for (let i = 0; i < C.COIN_COUNT; i++) {
             const coin = this.add.image(startX, startY - i * C.INITIAL_STACK_OFFSET, 'coin')
-                .setDisplaySize(C.REWARD_COIN_SIZE, C.REWARD_COIN_SIZE).setDepth(100 + i);
-            const dur = C.TOP_SPEED_DURATION * (1 + i * C.SPEED_VARIATION / (C.COIN_COUNT - 1));
-            this.time.delayedCall(i * C.STAGGER_DELAY, () => {
-                this.tweens.add({
-                    targets: coin, x: tX, y: tY,
-                    displayWidth: C.REWARD_COIN_SIZE * 0.6, displayHeight: C.REWARD_COIN_SIZE * 0.6,
-                    duration: dur, ease: C.EASE,
-                    onComplete: () => {
-                        coin.destroy();
-                        if (++done === C.COIN_COUNT) { this.coins += amount; this.updateCoinDisplay(); }
-                    },
+                .setDisplaySize(C.REWARD_COIN_SIZE, C.REWARD_COIN_SIZE)
+                .setDepth(2.5 + i * 0.01);  // Behind gadget sprite (which is at depth 4)
+            coins.push(coin);
+        }
+        
+        // Wait for sprite to disappear + additional delay, then animate coins to icon
+        this.time.delayedCall(delayBeforeFly, () => {
+            coins.forEach((coin, i) => {
+                // Set coins to high depth so they fly over everything
+                coin.setDepth(100 + i);
+                
+                const dur = C.TOP_SPEED_DURATION * (1 + i * C.SPEED_VARIATION / (C.COIN_COUNT - 1));
+                this.time.delayedCall(i * C.STAGGER_DELAY, () => {
+                    if (!coin.scene) return; // Already destroyed
+                    this.tweens.add({
+                        targets: coin, x: tX, y: tY,
+                        displayWidth: C.REWARD_COIN_SIZE * 0.6, displayHeight: C.REWARD_COIN_SIZE * 0.6,
+                        duration: dur, ease: C.EASE,
+                        onComplete: () => {
+                            coin.destroy();
+                            if (++done === C.COIN_COUNT) { this.coins += amount; this.updateCoinDisplay(); }
+                        },
+                    });
                 });
             });
-        }
+        });
     }
 
     // ================================================================

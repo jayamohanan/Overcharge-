@@ -135,12 +135,12 @@ var CONFIG = {
 
     COIN_REWARD_ANIMATION: {
         COIN_COUNT: 6,
-        REWARD_COIN_SIZE: 32,
+        REWARD_COIN_SIZE: 40,          // Match coin icon size for better visibility
         TOP_SPEED_DURATION: 600,
         SPEED_VARIATION: 0.15,
         STAGGER_DELAY: 50,
         INITIAL_STACK_OFFSET: 0,
-        COIN_SPAWN_DELAY: 100,
+        DELAY_BEFORE_FLY: 1000,        // ms to wait after gadget disappears before coins fly
         EASE: 'Power2',
     },
 
