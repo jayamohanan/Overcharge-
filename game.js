@@ -200,6 +200,9 @@ class GameScene extends Phaser.Scene {
                 isDefeated: false,
                 smokePuffs: [],        // Track smoke particle objects
                 explosionEffects: [],  // Track explosion ring objects
+                coinAnimationComplete: true,  // Track if coin animation finished
+                chargingAnimationsActive: [],  // Track active charging animations
+                reachedZeroCapacity: false,  // Track if gadget reached 0 capacity (stop charging)
             });
         }
     }
@@ -640,6 +643,7 @@ class GameScene extends Phaser.Scene {
             p.gadgetCapacityText  = capText;
             p.gadgetChargeText    = null;
             p.isDefeated          = false;
+            p.reachedZeroCapacity = false;
             p._gadgetName         = gadgetData.name;
             p._gadgetOriginX      = gadgetX;
             p._gadgetOriginY      = gadgetY;
@@ -725,6 +729,7 @@ class GameScene extends Phaser.Scene {
     clearGadgets() {
         for (const p of this.platforms) {
             this._stopSmoke(p);
+            this._stopEnergyEffects(p);
             
             // Clean up all smoke puffs and their tweens
             if (p.smokePuffs) {
@@ -763,6 +768,8 @@ class GameScene extends Phaser.Scene {
             p._pulseActive = false;
             p.smokeTimer = null;
             p._smokeDelay = null;
+            p.coinAnimationComplete = true;  // Reset coin animation state
+            p.reachedZeroCapacity = false;  // Reset charging stop flag
         }
     }
 
@@ -844,20 +851,36 @@ class GameScene extends Phaser.Scene {
             if (!slot) continue;
             const p = this.platforms[i];
             if (p.isDefeated || !p.gadgetSprite) continue;
+            
+            // Stop charging if gadget has already reached 0 capacity
+            if (p.reachedZeroCapacity) continue;
 
             p.gadgetCurrentCharge = Math.min(
                 p.gadgetCurrentCharge + slot.chargePerMinute, p.gadgetCapacity);
             this.updateGadgetChargeBar(p);
             this._applyTensionEffects(p);
             
-            // Visual effects: pulse battery and animate energy flow
-            this._pulseBatteryIcon(p);
-            this._animateEnergyFlow(p);
-            this._animateEnergyBeam(p);
-            this._animateGadgetGlow(p);
-
+            // Check if we've reached or exceeded capacity
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
-                this.explodeGadget(p);
+                // Mark that we've reached zero capacity - stop all future charging
+                p.reachedZeroCapacity = true;
+                
+                // Visual effects one last time before stopping
+                this._pulseBatteryIcon(p);
+                this._animateEnergyFlow(p);
+                this._animateEnergyBeam(p);
+                this._animateGadgetGlow(p);
+                
+                // Wait for all charging animations to complete before explosion
+                this._waitForChargingAnimations(p, () => {
+                    this.explodeGadget(p);
+                });
+            } else {
+                // Normal charging - show visual effects
+                this._pulseBatteryIcon(p);
+                this._animateEnergyFlow(p);
+                this._animateEnergyBeam(p);
+                this._animateGadgetGlow(p);
             }
         }
     }
@@ -867,10 +890,51 @@ class GameScene extends Phaser.Scene {
         const progress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
         if (p.gadgetCapacityText) {
             const remaining = Math.max(0, Math.ceil(p.gadgetCapacity - p.gadgetCurrentCharge));
-            p.gadgetCapacityText.setText(remaining > 0 ? `${remaining}` : '');
-            p.gadgetCapacityText.setAlpha(0.35 + 0.65 * (1 - progress));
+            // Hide text when at 0 instead of showing empty or '0'
+            if (remaining === 0) {
+                p.gadgetCapacityText.setVisible(false);
+            } else {
+                p.gadgetCapacityText.setText(`${remaining}`);
+                p.gadgetCapacityText.setVisible(true);
+                p.gadgetCapacityText.setAlpha(0.35 + 0.65 * (1 - progress));
+            }
         }
         this._animateMeterNeedle(p, progress * CONFIG.PLATFORM.METER_EXPLOSION_ANGLE);
+    }
+
+    _waitForChargingAnimations(p, callback) {
+        // Wait for all active charging animations to complete before triggering explosion
+        const P = CONFIG.PLATFORM;
+        
+        // Calculate total time for charging animations
+        const energyParticleTime = P.CHARGE_PARTICLE_SPEED + P.CHARGE_FLASH_DURATION;
+        const glowTime = P.USE_GADGET_AURA ? 1500 : (P.GADGET_ENERGY_GLOW_ENABLED ? P.GADGET_ENERGY_GLOW_DURATION : 0);
+        const maxAnimationTime = Math.max(energyParticleTime, glowTime);
+        
+        // Wait for animations to complete
+        this.time.delayedCall(maxAnimationTime, callback);
+    }
+
+    _stopEnergyEffects(p) {
+        // Stop all active aura animations and effects
+        if (p.activeAuraEvents) {
+            p.activeAuraEvents.forEach(({ event, layers }) => {
+                if (event) event.remove();
+                layers.forEach(layer => { if (layer && layer.scene) layer.destroy(); });
+            });
+            p.activeAuraEvents = [];
+        }
+        
+        // Stop all active sparks
+        if (p.activeSparks) {
+            p.activeSparks.forEach(spark => {
+                if (spark && spark.scene) {
+                    this.tweens.killTweensOf(spark);
+                    spark.destroy();
+                }
+            });
+            p.activeSparks = [];
+        }
     }
 
     _pulseBatteryIcon(p) {
@@ -1160,6 +1224,13 @@ class GameScene extends Phaser.Scene {
         const updateEvent = this.time.addEvent({
             delay: 16,
             callback: () => {
+                if (p.isDefeated) {
+                    // Stop animation if gadget is defeated
+                    updateEvent.remove();
+                    auraLayers.forEach(layer => { if (layer.scene) layer.destroy(); });
+                    return;
+                }
+                
                 state.time += 0.016;
                 const progress = state.time / state.duration;
                 const pulsePhase = state.time * P.GADGET_AURA_PULSE_SPEED * Math.PI * 2;
@@ -1167,6 +1238,7 @@ class GameScene extends Phaser.Scene {
                 
                 // Update each layer
                 auraLayers.forEach((layer, i) => {
+                    if (!layer.scene) return;
                     const phaseOffset = i * 0.3;
                     const layerPulse = (Math.sin(pulsePhase + phaseOffset) + 1) / 2;
                     const baseAlpha = 0.4 - (i * 0.1);
@@ -1179,25 +1251,36 @@ class GameScene extends Phaser.Scene {
                 // Cleanup when complete
                 if (progress >= 1) {
                     updateEvent.remove();
-                    auraLayers.forEach(layer => layer.destroy());
+                    auraLayers.forEach(layer => { if (layer.scene) layer.destroy(); });
                 }
             },
             loop: true
         });
         
+        // Store reference for cleanup
+        if (!p.activeAuraEvents) p.activeAuraEvents = [];
+        p.activeAuraEvents.push({ event: updateEvent, layers: auraLayers });
+        
         // Spawn electric sparks (reuse maxDim from function scope)
-        this._spawnElectricSparks(gx, gy, maxDim / 2);
+        this._spawnElectricSparks(p, gx, gy, maxDim / 2);
         
         // Auto-cleanup
         this.time.delayedCall(state.duration * 1000, () => {
             if (updateEvent) updateEvent.remove();
             auraLayers.forEach(layer => { if (layer.scene) layer.destroy(); });
+            // Remove from active events
+            if (p.activeAuraEvents) {
+                const idx = p.activeAuraEvents.findIndex(e => e.event === updateEvent);
+                if (idx > -1) p.activeAuraEvents.splice(idx, 1);
+            }
         });
     }
     
-    _spawnElectricSparks(cx, cy, radius) {
+    _spawnElectricSparks(p, cx, cy, radius) {
         const P = CONFIG.PLATFORM;
         const sparkCount = P.GADGET_AURA_SPARK_COUNT;
+        
+        if (!p.activeSparks) p.activeSparks = [];
         
         for (let i = 0; i < sparkCount; i++) {
             const angle = (i / sparkCount) * Math.PI * 2 + Math.random() * 0.5;
@@ -1207,6 +1290,7 @@ class GameScene extends Phaser.Scene {
             
             // Create spark
             const spark = this.add.circle(sx, sy, 2, 0xFFFFFF, 0.9).setDepth(4.5);
+            p.activeSparks.push(spark);
             
             // Animate toward center
             const duration = (800 + Math.random() * 400);
@@ -1218,7 +1302,14 @@ class GameScene extends Phaser.Scene {
                 alpha: 0,
                 duration: duration,
                 ease: 'Cubic.easeIn',
-                onComplete: () => spark.destroy()
+                onComplete: () => {
+                    spark.destroy();
+                    // Remove from active sparks
+                    if (p.activeSparks) {
+                        const idx = p.activeSparks.indexOf(spark);
+                        if (idx > -1) p.activeSparks.splice(idx, 1);
+                    }
+                }
             });
         }
     }
@@ -1367,10 +1458,17 @@ class GameScene extends Phaser.Scene {
                     
                     // Swap sprite at peak shake (shake 3)
                     if (shakeCount === 3) {
+                        // Stop all energy flow effects (sparks, auras) when sprite switches
+                        this._stopEnergyEffects(p);
+                        
                         // Spawn coins behind the gadget sprite
                         if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                            p.coinAnimationComplete = false;
                             const totalDelay = P.BURNEDOUT_DISPLAY_DURATION + P.BURNEDOUT_FADE_DURATION + CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
-                            this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+                            this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay, p);
+                        } else {
+                            // No coins to spawn, mark as complete
+                            p.coinAnimationComplete = true;
                         }
                         
                         // Switch texture mid-shake for continuity
@@ -1563,10 +1661,17 @@ class GameScene extends Phaser.Scene {
                 
             } else {
                 // Fallback: darken in place
+                // Stop all energy flow effects (sparks, auras) when sprite switches
+                this._stopEnergyEffects(p);
+                
                 // Spawn coins behind the gadget sprite
                 if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                    p.coinAnimationComplete = false;
                     const totalDelay = P.BURNEDOUT_DISPLAY_DURATION + P.BURNEDOUT_FADE_DURATION + CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
-                    this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+                    this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay, p);
+                } else {
+                    // No coins to spawn, mark as complete
+                    p.coinAnimationComplete = true;
                 }
                 
                 p.gadgetSprite.setTint(0x444444);
@@ -1635,8 +1740,12 @@ class GameScene extends Phaser.Scene {
         } else {
             // No gadget sprite - spawn coins immediately with short delay
             if (p.gadgetCapacity && p.gadgetCapacity > 0) {
+                p.coinAnimationComplete = false;
                 const totalDelay = CONFIG.COIN_REWARD_ANIMATION.DELAY_BEFORE_FLY;
-                this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay);
+                this.animateCoinReward(ex, ey, p.gadgetCapacity, totalDelay, p);
+            } else {
+                // No coins to spawn, mark as complete
+                p.coinAnimationComplete = true;
             }
             
             p.isDefeated = true;
@@ -1682,7 +1791,28 @@ class GameScene extends Phaser.Scene {
 
     checkAllDefeated() {
         if (this.platforms.every(p => p.isDefeated)) {
-            this.time.delayedCall(500, () => this.advanceToNextGadget());
+            // Wait for all coin animations to complete
+            this._waitForCoinAnimations(() => {
+                // Add buffer time after all coins collected before next level
+                const bufferTime = CONFIG.LEVEL_COMPLETION.BUFFER_TIME;
+                this.time.delayedCall(bufferTime, () => {
+                    this.advanceToNextGadget();
+                });
+            });
+        }
+    }
+
+    _waitForCoinAnimations(callback) {
+        // Check if all coin animations are complete
+        const allComplete = this.platforms.every(p => p.coinAnimationComplete);
+        
+        if (allComplete) {
+            callback();
+        } else {
+            // Check again in 100ms
+            this.time.delayedCall(100, () => {
+                this._waitForCoinAnimations(callback);
+            });
         }
     }
 
@@ -2454,7 +2584,7 @@ class GameScene extends Phaser.Scene {
         this.updateSpawnButton();
     }
 
-    animateCoinReward(startX, startY, amount, delayBeforeFly = 0) {
+    animateCoinReward(startX, startY, amount, delayBeforeFly = 0, platform = null) {
         const C   = CONFIG.COIN_REWARD_ANIMATION;
         const tX  = this.coinIcon.x, tY = this.coinIcon.y;
         let done  = 0;
@@ -2483,7 +2613,12 @@ class GameScene extends Phaser.Scene {
                         duration: dur, ease: C.EASE,
                         onComplete: () => {
                             coin.destroy();
-                            if (++done === C.COIN_COUNT) { this.coins += amount; this.updateCoinDisplay(); }
+                            if (++done === C.COIN_COUNT) { 
+                                this.coins += amount; 
+                                this.updateCoinDisplay();
+                                // Mark coin animation complete for this platform
+                                if (platform) platform.coinAnimationComplete = true;
+                            }
                         },
                     });
                 });

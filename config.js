@@ -140,8 +140,12 @@ var CONFIG = {
         SPEED_VARIATION: 0.15,
         STAGGER_DELAY: 50,
         INITIAL_STACK_OFFSET: 0,
-        DELAY_BEFORE_FLY: 1000,        // ms to wait after gadget disappears before coins fly
+        DELAY_BEFORE_FLY: 500,        // ms to wait after gadget disappears before coins fly
         EASE: 'Power2',
+    },
+
+    LEVEL_COMPLETION: {
+        BUFFER_TIME: 500,              // ms buffer after all coins collected before next level loads
     },
 
         // Platform stripes (top half) with battery slot on left, gadget on right
