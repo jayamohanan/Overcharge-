@@ -50,6 +50,10 @@ var CONFIG = {
         TIMER_TEXT_COLOR: '#FFFFFF',
     },
 
+    GADGET_LOAD: {
+        DELAY_BEFORE_CHARGING: 0,  // Delay in ms after all gadget popup animations complete before charging starts
+    },
+
     MERGE_GRID: {
         PADDING_FROM_BUTTON_TOP: 50,
     },

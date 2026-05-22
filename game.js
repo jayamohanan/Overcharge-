@@ -590,6 +590,9 @@ class GameScene extends Phaser.Scene {
             this.chargingInterval = null;
         }
         
+        // Restart the charging polling for the new level
+        this.startCharging();
+        
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
             const p        = this.platforms[i];
@@ -751,16 +754,13 @@ class GameScene extends Phaser.Scene {
         const lastGadgetStartDelay = 2 * STAGGER_DELAY; // Third gadget (index 2)
         const totalAnimationTime = lastGadgetStartDelay + ANIMATION_DURATION;
         
-        // Set flag and restart charging when all animations complete
+        // Set flag when all animations complete (with optional delay)
+        // The startCharging() polling mechanism will handle creating the charging interval
         this.time.delayedCall(totalAnimationTime, () => {
-            this.gadgetAnimationsComplete = true;
-            
-            // Restart charging interval now that animations are complete
-            if (!this.chargingInterval) {
-                this.chargingInterval = this.time.addEvent({
-                    delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
-                });
-            }
+            const chargingDelay = CONFIG.GADGET_LOAD.DELAY_BEFORE_CHARGING;
+            this.time.delayedCall(chargingDelay, () => {
+                this.gadgetAnimationsComplete = true;
+            });
         });
         
         for (let i = 0; i < 3; i++) {
@@ -981,9 +981,12 @@ class GameScene extends Phaser.Scene {
         // Wait for gadget animations to complete before starting charge cycle
         const checkAnimationsComplete = () => {
             if (this.gadgetAnimationsComplete) {
-                this.chargingInterval = this.time.addEvent({
-                    delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
-                });
+                // Only create interval if one doesn't already exist
+                if (!this.chargingInterval) {
+                    this.chargingInterval = this.time.addEvent({
+                        delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
+                    });
+                }
             } else {
                 // Check again in 100ms
                 this.time.delayedCall(100, checkAnimationsComplete);
@@ -993,6 +996,9 @@ class GameScene extends Phaser.Scene {
     }
 
     chargeCycle() {
+        // Don't charge if gadget animations are not complete yet
+        if (!this.gadgetAnimationsComplete) return;
+        
         for (let i = 0; i < 3; i++) {
             const slot = this.chargingSlots[i];
             if (!slot) continue;
