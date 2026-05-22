@@ -31,6 +31,7 @@ class GameScene extends Phaser.Scene {
         this.unlockDisplayText       = null;
         this.unlockDisplayBatteryIcon= null;
         this.highestUnlockedBatteryLevel = 0;
+        this.gadgetAnimationsComplete = false;
 
         this.CELL_SIZE  = CONFIG.CELL.SIZE;
         this.CELL_GAP   = CONFIG.CELL.GAP;
@@ -323,7 +324,9 @@ class GameScene extends Phaser.Scene {
         if (progress < yellowThresh) {
             // Normal range — clear any leftover tint, soft pulse on each charge tick
             p.gadgetSprite.setTint(0xffffff);
-            this.tweens.add({ targets: p.gadgetSprite, alpha: 0.35, duration: 80, yoyo: true });
+            if (P.GADGET_FLASH_ON_CHARGE_ENABLED) {
+                this.tweens.add({ targets: p.gadgetSprite, alpha: 0.35, duration: 80, yoyo: true });
+            }
             return;
         }
 
@@ -341,9 +344,11 @@ class GameScene extends Phaser.Scene {
         p.gadgetSprite.setTint((r << 16) | (g << 8) | b);
 
         // ── Flash (subtle, increases with tension) ──────────────────────────────
-        const flashAlpha = 0.4 - tensionProgress * 0.25; // 0.4 → 0.15
-        const flashDur   = 80 - Math.round(tensionProgress * 35); // 80ms → 45ms
-        this.tweens.add({ targets: p.gadgetSprite, alpha: flashAlpha, duration: flashDur, yoyo: true });
+        if (P.GADGET_FLASH_ON_CHARGE_ENABLED) {
+            const flashAlpha = 0.4 - tensionProgress * 0.25; // 0.4 → 0.15
+            const flashDur   = 80 - Math.round(tensionProgress * 35); // 80ms → 45ms
+            this.tweens.add({ targets: p.gadgetSprite, alpha: flashAlpha, duration: flashDur, yoyo: true });
+        }
 
         // ── Shake (increases gradually, maximum at end) ─────────────────────────
         if (!p._shakeActive) {
@@ -577,6 +582,14 @@ class GameScene extends Phaser.Scene {
 
     loadGadgets(gadgetData) {
         this.clearGadgets();
+        this.gadgetAnimationsComplete = false; // Reset flag for new level
+        
+        // Stop charging interval while gadgets are loading/animating
+        if (this.chargingInterval) {
+            this.chargingInterval.remove();
+            this.chargingInterval = null;
+        }
+        
         const P = CONFIG.PLATFORM;
         for (let i = 0; i < 3; i++) {
             const p        = this.platforms[i];
@@ -724,6 +737,131 @@ class GameScene extends Phaser.Scene {
                 p.meterPivot  = null;
             }
         }
+        
+        // Animate gadgets appearing one by one with slight delay
+        this.animateGadgetsAppearance();
+    }
+
+    animateGadgetsAppearance() {
+        const P = CONFIG.PLATFORM;
+        const ANIMATION_DURATION = 400;  // Duration of popup animation
+        const STAGGER_DELAY = 150;       // Delay between each gadget starting its animation
+        
+        // Calculate total time for all animations to complete
+        const lastGadgetStartDelay = 2 * STAGGER_DELAY; // Third gadget (index 2)
+        const totalAnimationTime = lastGadgetStartDelay + ANIMATION_DURATION;
+        
+        // Set flag and restart charging when all animations complete
+        this.time.delayedCall(totalAnimationTime, () => {
+            this.gadgetAnimationsComplete = true;
+            
+            // Restart charging interval now that animations are complete
+            if (!this.chargingInterval) {
+                this.chargingInterval = this.time.addEvent({
+                    delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
+                });
+            }
+        });
+        
+        for (let i = 0; i < 3; i++) {
+            const p = this.platforms[i];
+            const delay = i * STAGGER_DELAY;
+            
+            // Elements to show after animation: wire and plug
+            const delayedElements = [
+                p.wireGraphics,
+                p.plugSprite
+            ].filter(Boolean);
+            
+            // Store target dimensions for gadget sprite (already set via setDisplaySize)
+            const targetWidth = p._gadgetDisplayWidth;
+            const targetHeight = p._gadgetDisplayHeight;
+            
+            // Set initial state for gadget sprite: invisible and small (using displayWidth/Height)
+            if (p.gadgetSprite) {
+                p.gadgetSprite.setAlpha(0);
+                p.gadgetSprite.displayWidth = targetWidth * 0.5;
+                p.gadgetSprite.displayHeight = targetHeight * 0.5;
+            }
+            
+            // Set initial state for capacity text: invisible and scaled down
+            if (p.gadgetCapacityText) {
+                p.gadgetCapacityText.setAlpha(0);
+                p.gadgetCapacityText.setScale(0.5);
+            }
+            
+            // Set initial state for meter elements: invisible and scaled down from their original scale
+            const meterOriginalScale = P.SHOW_ANALOG_METER ? P.METER_SCALE : 1;
+            if (p.meterBg) {
+                p.meterBg.setAlpha(0);
+                p.meterBg.setScale(meterOriginalScale * 0.5);
+            }
+            if (p.meterNeedle) {
+                p.meterNeedle.setAlpha(0);
+                p.meterNeedle.setScale(meterOriginalScale * 0.5);
+            }
+            if (p.meterPivot) {
+                p.meterPivot.setAlpha(0);
+                p.meterPivot.setScale(meterOriginalScale * 0.5);
+            }
+            
+            // Set initial state for wire/plug: invisible at normal scale
+            delayedElements.forEach(el => {
+                el.setAlpha(0);
+            });
+            
+            // Animate gadget elements to pop in
+            this.time.delayedCall(delay, () => {
+                // Animate gadget sprite (using displayWidth/displayHeight to preserve setDisplaySize)
+                if (p.gadgetSprite) {
+                    this.tweens.add({
+                        targets: p.gadgetSprite,
+                        alpha: 1,
+                        displayWidth: targetWidth,
+                        displayHeight: targetHeight,
+                        duration: ANIMATION_DURATION,
+                        ease: 'Back.easeOut'
+                    });
+                }
+                
+                // Animate capacity text
+                if (p.gadgetCapacityText) {
+                    this.tweens.add({
+                        targets: p.gadgetCapacityText,
+                        alpha: 1,
+                        scaleX: 1,
+                        scaleY: 1,
+                        duration: ANIMATION_DURATION,
+                        ease: 'Back.easeOut'
+                    });
+                }
+                
+                // Animate meter elements to their original scale
+                const meterElements = [p.meterBg, p.meterNeedle, p.meterPivot].filter(Boolean);
+                meterElements.forEach(el => {
+                    this.tweens.add({
+                        targets: el,
+                        alpha: 1,
+                        scaleX: meterOriginalScale,
+                        scaleY: meterOriginalScale,
+                        duration: ANIMATION_DURATION,
+                        ease: 'Back.easeOut'
+                    });
+                });
+                
+                // Show wire and plug after gadget animation completes
+                this.time.delayedCall(ANIMATION_DURATION, () => {
+                    delayedElements.forEach(el => {
+                        this.tweens.add({
+                            targets: el,
+                            alpha: 1,
+                            duration: 200,
+                            ease: 'Linear'
+                        });
+                    });
+                });
+            });
+        }
     }
 
     clearGadgets() {
@@ -840,9 +978,18 @@ class GameScene extends Phaser.Scene {
     // CHARGING / GADGET SYSTEM
     // ================================================================
     startCharging() {
-        this.chargingInterval = this.time.addEvent({
-            delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
-        });
+        // Wait for gadget animations to complete before starting charge cycle
+        const checkAnimationsComplete = () => {
+            if (this.gadgetAnimationsComplete) {
+                this.chargingInterval = this.time.addEvent({
+                    delay: 1000, callback: this.chargeCycle, callbackScope: this, loop: true,
+                });
+            } else {
+                // Check again in 100ms
+                this.time.delayedCall(100, checkAnimationsComplete);
+            }
+        };
+        checkAnimationsComplete();
     }
 
     chargeCycle() {
@@ -1293,7 +1440,8 @@ class GameScene extends Phaser.Scene {
             p.activeSparks.push(spark);
             
             // Animate toward center
-            const duration = (800 + Math.random() * 400);
+            const durationRange = P.GADGET_AURA_SPARK_DURATION_MAX - P.GADGET_AURA_SPARK_DURATION_MIN;
+            const duration = P.GADGET_AURA_SPARK_DURATION_MIN + Math.random() * durationRange;
             this.tweens.add({
                 targets: spark,
                 x: cx + Math.cos(angle) * (radius * 0.5),
@@ -1505,21 +1653,18 @@ class GameScene extends Phaser.Scene {
                                         p.smokePuffs = [];
                                     }
                                     
-                                    // Clean up wire, plug, socket, meter if still present
-                                    const cleanupItems = [
-                                        p.wireGraphics, p.plugSprite, p.socketSprite,
-                                        p.meterBg, p.meterNeedle, p.meterPivot
-                                    ].filter(Boolean);
-                                    cleanupItems.forEach(item => {
-                                        if (item.scene) {
-                                            this.tweens.killTweensOf(item);
-                                            item.destroy();
-                                        }
-                                    });
-                                    p.wireGraphics = p.plugSprite = p.socketSprite = null;
-                                    p.meterBg = p.meterNeedle = p.meterPivot = null;
-                                    
-                                    // Fade out the burnedout sprite
+                                // Clean up wire, plug, meter if still present (socket stays on charging slot)
+                                const cleanupItems = [
+                                    p.wireGraphics, p.plugSprite,
+                                    p.meterBg, p.meterNeedle, p.meterPivot
+                                ].filter(Boolean);
+                                cleanupItems.forEach(item => {
+                                    if (item.scene) {
+                                        this.tweens.killTweensOf(item);
+                                        item.destroy();
+                                    }
+                                });
+                                p.wireGraphics = p.plugSprite = null;
                                     this.tweens.add({
                                         targets: p.gadgetSprite,
                                         alpha: 0,
@@ -1706,9 +1851,9 @@ class GameScene extends Phaser.Scene {
                                 p.smokePuffs = [];
                             }
                             
-                            // Clean up wire, plug, socket, meter if still present
+                            // Clean up wire, plug, meter if still present (socket stays on charging slot)
                             const cleanupItems = [
-                                p.wireGraphics, p.plugSprite, p.socketSprite,
+                                p.wireGraphics, p.plugSprite,
                                 p.meterBg, p.meterNeedle, p.meterPivot
                             ].filter(Boolean);
                             cleanupItems.forEach(item => {
@@ -1717,7 +1862,7 @@ class GameScene extends Phaser.Scene {
                                     item.destroy();
                                 }
                             });
-                            p.wireGraphics = p.plugSprite = p.socketSprite = null;
+                            p.wireGraphics = p.plugSprite = null;
                             p.meterBg = p.meterNeedle = p.meterPivot = null;
                             
                             // Fade out the burnedout sprite
@@ -2541,6 +2686,58 @@ class GameScene extends Phaser.Scene {
     }
 
     levelUpAll() {
+        // Show mock ad before upgrading
+        this.showMockAd(() => {
+            this.performLevelUpAll();
+        });
+    }
+
+    showMockAd(onComplete) {
+        const W = this.cameras.main.width;
+        const H = this.cameras.main.height;
+        const A = CONFIG.AD;
+        
+        // Create overlay
+        const overlay = this.add.rectangle(W / 2, H / 2, W, H, 
+            parseInt(A.OVERLAY_COLOR.substring(1), 16), A.OVERLAY_ALPHA)
+            .setDepth(10000);
+        
+        // Create countdown timer text in center
+        const timerText = this.add.text(W / 2, H / 2, `${A.DURATION}`, {
+            fontSize: A.TIMER_TEXT_SIZE,
+            fontFamily: CONFIG.FONT_FAMILY,
+            color: A.TIMER_TEXT_COLOR,
+            fontStyle: 'bold',
+        }).setOrigin(0.5).setDepth(10001);
+        
+        // Countdown from AD.DURATION to 0
+        let timeLeft = A.DURATION;
+        const countdownEvent = this.time.addEvent({
+            delay: 1000,
+            repeat: A.DURATION,
+            callback: () => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    timerText.setText(`${timeLeft}`);
+                } else {
+                    // Ad complete - fade out and call callback
+                    this.tweens.add({
+                        targets: [overlay, timerText],
+                        alpha: 0,
+                        duration: 300,
+                        ease: 'Linear',
+                        onComplete: () => {
+                            overlay.destroy();
+                            timerText.destroy();
+                            onComplete();
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    performLevelUpAll() {
         for (const bd of this.batteries) {
             if (bd.inGrid) {
                 bd.level += 1;

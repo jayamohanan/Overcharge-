@@ -42,6 +42,14 @@ var CONFIG = {
         COIN_ICON_Y: 0,
     },
 
+    AD: {
+        DURATION: 15,  // Duration of mock ad in seconds (countdown timer)
+        OVERLAY_COLOR: "#000000",
+        OVERLAY_ALPHA: 0.9,
+        TIMER_TEXT_SIZE: '120px',
+        TIMER_TEXT_COLOR: '#FFFFFF',
+    },
+
     MERGE_GRID: {
         PADDING_FROM_BUTTON_TOP: 50,
     },
@@ -175,11 +183,11 @@ var CONFIG = {
         WIRE_COLOR: 0x46464a,          // wire color
 
         // ── Debug rect (max gadget area) ──────────────────────────────────────
-        DEBUG_RECT_PADDING_FROM_SLOT: 100, // padding from slot right edge to debug rect left edge (px)
+        DEBUG_RECT_PADDING_FROM_SLOT: 160, // padding from slot right edge to debug rect left edge (px)
         DEBUG_RECT_PADDING_FROM_STRIPE: 14, // padding from stripe top to debug rect bottom (px)
         DEBUG_RECT_WIDTH: 180,         // max width for gadget display area (px)
         DEBUG_RECT_HEIGHT: 115,        // max height for gadget display area (px)
-        DEBUG_RECT_SHOW: true,        // show semi-transparent rect for max gadget area
+        DEBUG_RECT_SHOW: false,        // show semi-transparent rect for max gadget area
         DEBUG_RECT_COLOR: 0xFF00FF,    // debug rect color (magenta)
         DEBUG_RECT_ALPHA: 0.1,         // debug rect transparency (0-1)
         
@@ -264,11 +272,15 @@ var CONFIG = {
         // Advanced Gadget Aura Effect
         USE_GADGET_AURA: true,         // toggle advanced gadget aura effect (overrides simple glow)
         GADGET_AURA_LAYERS: 3,         // number of concentric glow layers
-        GADGET_AURA_BASE_SIZE: 30,     // base size of innermost aura layer (px)
+        GADGET_AURA_BASE_SIZE: 180,     // base size of innermost aura layer (px)
         GADGET_AURA_COLOR: 0x00DDFF,   // aura color
         GADGET_AURA_PULSE_SPEED: 2.0,  // breathing speed (cycles per second)
         GADGET_AURA_SPARK_COUNT: 8,    // number of spark particles per pulse
-        GADGET_AURA_SPARK_SPEED: 100,  // speed of sparks moving inward (px/s)
+        GADGET_AURA_SPARK_DURATION_MIN: 100,  // min duration (ms) for sparks to reach gadget center
+        GADGET_AURA_SPARK_DURATION_MAX: 400, // max duration (ms) for sparks to reach gadget center
+        
+        // Gadget visual feedback on charge
+        GADGET_FLASH_ON_CHARGE_ENABLED: true, // toggle alpha flash effect when gadget receives charge
     },
 };
 
