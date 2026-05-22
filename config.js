@@ -45,7 +45,7 @@ var CONFIG = {
     AD: {
         DURATION: 15,  // Duration of mock ad in seconds (countdown timer)
         OVERLAY_COLOR: "#000000",
-        OVERLAY_ALPHA: 0.9,
+        OVERLAY_ALPHA: 1.0,  // Fully opaque - blocks game view completely
         TIMER_TEXT_SIZE: '120px',
         TIMER_TEXT_COLOR: '#FFFFFF',
     },

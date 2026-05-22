@@ -32,6 +32,7 @@ class GameScene extends Phaser.Scene {
         this.unlockDisplayBatteryIcon= null;
         this.highestUnlockedBatteryLevel = 0;
         this.gadgetAnimationsComplete = false;
+        this.isWatchingAd = false;  // Flag to block interactions during ad
 
         this.CELL_SIZE  = CONFIG.CELL.SIZE;
         this.CELL_GAP   = CONFIG.CELL.GAP;
@@ -2338,6 +2339,7 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnBattery() {
+        if (this.isWatchingAd) return;  // Block spawning during ad
         if (this.coins < this.spawnCost) return;
         let emptyCell = null;
         outer: for (let row = 0; row < this.GRID_ROWS; row++) {
@@ -2375,6 +2377,7 @@ class GameScene extends Phaser.Scene {
     // DRAG / DROP
     // ================================================================
     onDragStart(pointer, gameObject) {
+        if (this.isWatchingAd) return;  // Block dragging during ad
         const bd = gameObject.getData('batteryData');
         if (!bd) return;
         this.draggingBattery = bd;
@@ -2692,6 +2695,7 @@ class GameScene extends Phaser.Scene {
     }
 
     levelUpAll() {
+        if (this.isWatchingAd) return;  // Prevent multiple ad triggers
         // Show mock ad before upgrading
         this.showMockAd(() => {
             this.performLevelUpAll();
@@ -2699,6 +2703,7 @@ class GameScene extends Phaser.Scene {
     }
 
     showMockAd(onComplete) {
+        this.isWatchingAd = true;  // Block all interactions during ad
         const W = this.cameras.main.width;
         const H = this.cameras.main.height;
         const A = CONFIG.AD;
@@ -2706,7 +2711,8 @@ class GameScene extends Phaser.Scene {
         // Create overlay
         const overlay = this.add.rectangle(W / 2, H / 2, W, H, 
             parseInt(A.OVERLAY_COLOR.substring(1), 16), A.OVERLAY_ALPHA)
-            .setDepth(10000);
+            .setDepth(10000)
+            .setInteractive();  // Block clicks from passing through overlay
         
         // Create countdown timer text in center
         const timerText = this.add.text(W / 2, H / 2, `${A.DURATION}`, {
@@ -2726,18 +2732,12 @@ class GameScene extends Phaser.Scene {
                 if (timeLeft > 0) {
                     timerText.setText(`${timeLeft}`);
                 } else {
-                    // Ad complete - fade out and call callback
-                    this.tweens.add({
-                        targets: [overlay, timerText],
-                        alpha: 0,
-                        duration: 300,
-                        ease: 'Linear',
-                        onComplete: () => {
-                            overlay.destroy();
-                            timerText.destroy();
-                            onComplete();
-                        }
-                    });
+                    // Ad complete - destroy immediately and upgrade
+                    countdownEvent.remove();  // Stop the countdown to prevent multiple calls
+                    overlay.destroy();
+                    timerText.destroy();
+                    this.isWatchingAd = false;  // Re-enable interactions
+                    onComplete();  // Instant upgrade after ad
                 }
             }
         });
