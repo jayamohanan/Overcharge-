@@ -50,13 +50,40 @@
 //   - Covers levels: 4, 5
 //   - Files: trump_1.png, trump_2.png
 var BATTERY_TYPES = [
+     { name: 'Trump', count: 3 },         // 2
+    { name: 'Dove', count: 3 },          // 30
+     { name: 'mouse', count: 3 },         // 5
+     { name: 'Horse Head', count: 3 },         // 5
     { name: 'Spider Web', count: 3 },    // 7
     { name: 'Jars', count: 3 },          // 1
-    { name: 'Trump', count: 3 },         // 2
+   
     { name: 'Banana', count: 3 },        // 3
     { name: 'Turtle', count: 3 },        // 4
     { name: 'Skirt', count: 3 },         // 5
     { name: 'Mask', count: 3 },          // 6
+
+
+
+
+    { name: 'Eagle', count: 3 },        // 3
+    { name: 'Unicorn', count: 3 },        // 4
+    { name: 'Dolphin', count: 3 },         // 5
+    { name: 'Dragon', count: 3 },          // 6
+
+
+
+    { name: 'Rabbit', count: 3 },        // 3
+    { name: 'Rat', count: 3 },        // 4
+    { name: 'Horse Head', count: 3 },         // 5
+    { name: 'Palm', count: 3 },          // 6
+
+    { name: 'Elephant', count: 3 },        // 3
+    { name: 'Toilet', count: 3 },        // 4
+    { name: 'Bishop', count: 3 },         // 5
+    { name: 'King', count: 3 },          // 6
+
+    { name: 'Lion', count: 3 },          // 6
+
     
     { name: 'Baby', count: 3 },          // 8
     { name: 'Butterfly', count: 3 },     // 9
@@ -80,7 +107,7 @@ var BATTERY_TYPES = [
     { name: 'Solar', count: 3 },         // 27
     { name: 'Shield', count: 3 },        // 28
     { name: 'Burger', count: 3 },        // 29
-    { name: 'Dove', count: 3 },          // 30
+    
     { name: 'Icon', count: 3 },          // 31
     { name: 'Octopus', count: 3 },       // 32
     { name: 'Test Tube', count: 3 },     // 33
