@@ -50,73 +50,62 @@
 //   - Covers levels: 4, 5
 //   - Files: trump_1.png, trump_2.png
 var BATTERY_TYPES = [
-     { name: 'Trump', count: 3 },         // 2
-    { name: 'Dove', count: 3 },          // 30
-     { name: 'mouse', count: 3 },         // 5
-     { name: 'Horse Head', count: 3 },         // 5
-    { name: 'Spider Web', count: 3 },    // 7
-    { name: 'Jars', count: 3 },          // 1
-   
-    { name: 'Banana', count: 3 },        // 3
-    { name: 'Turtle', count: 3 },        // 4
-    { name: 'Skirt', count: 3 },         // 5
-    { name: 'Mask', count: 3 },          // 6
-
-
-
-
-    { name: 'Eagle', count: 3 },        // 3
-    { name: 'Unicorn', count: 3 },        // 4
-    { name: 'Dolphin', count: 3 },         // 5
-    { name: 'Dragon', count: 3 },          // 6
-
-
-
-    { name: 'Rabbit', count: 3 },        // 3
-    { name: 'Rat', count: 3 },        // 4
-    { name: 'Horse Head', count: 3 },         // 5
-    { name: 'Palm', count: 3 },          // 6
-
-    { name: 'Elephant', count: 3 },        // 3
-    { name: 'Toilet', count: 3 },        // 4
-    { name: 'Bishop', count: 3 },         // 5
-    { name: 'King', count: 3 },          // 6
-
-    { name: 'Lion', count: 3 },          // 6
-
-    
-    { name: 'Baby', count: 3 },          // 8
-    { name: 'Butterfly', count: 3 },     // 9
-    { name: 'Diaper', count: 3 },        // 10
-    { name: 'Poop', count: 3 },          // 11
-    { name: 'Violin', count: 3 },        // 12
-    { name: 'Fire', count: 3 },          // 13
-    { name: 'Camera', count: 3 },        // 14
-    { name: 'Compass', count: 3 },       // 15
-    { name: 'Jerrycan', count: 3 },      // 16
-    { name: 'Snowman', count: 3 },       // 17
-    { name: 'Scissors', count: 3 },      // 18
-    { name: 'Feather', count: 3 },       // 19
-    { name: 'Book', count: 3 },          // 20
-    { name: 'Clock', count: 3 },         // 21
-    { name: 'Piggy Bank', count: 3 },    // 22
-    { name: 'Heart', count: 3 },         // 23
-    { name: 'Apple', count: 3 },         // 24
-    { name: 'Star', count: 3 },          // 25
-    { name: 'Frog', count: 3 },          // 26
-    { name: 'Solar', count: 3 },         // 27
-    { name: 'Shield', count: 3 },        // 28
-    { name: 'Burger', count: 3 },        // 29
-    
-    { name: 'Icon', count: 3 },          // 31
-    { name: 'Octopus', count: 3 },       // 32
-    { name: 'Test Tube', count: 3 },     // 33
-    { name: 'Jar', count: 3 },           // 34
-    { name: 'Jug', count: 3 },           // 35
-    { name: 'Mango', count: 3 },         // 36
-    { name: 'Suitcase', count: 3 },      // 37
-    { name: 'Briefcase', count: 3 },     // 38
-    { name: 'Lamp', count: 3 },          // 39
+      { name: 'Battery', count: 3 },        // 1
+{ name: 'Sock', count: 3 },           // 2
+{ name: 'Feather', count: 3 },        // 3
+{ name: 'Star', count: 3 },           // 4
+{ name: 'Heart', count: 3 },          // 5
+{ name: 'Scissors', count: 3 },       // 6
+{ name: 'Shield', count: 3 },         // 7
+{ name: 'Jar', count: 3 },            // 8
+{ name: 'Jug', count: 3 },            // 9
+{ name: 'Jars', count: 3 },           // 10
+{ name: 'Jerrycan', count: 3 },       // 11
+{ name: 'Lamp', count: 3 },           // 12
+{ name: 'Compass', count: 3 },        // 13
+{ name: 'Clock', count: 3 },          // 14
+{ name: 'Camera', count: 3 },         // 15
+{ name: 'Apple', count: 3 },          // 16
+{ name: 'Mango', count: 3 },          // 17
+{ name: 'Banana', count: 3 },         // 18
+{ name: 'Palm', count: 3 },           // 19
+{ name: 'Skirt', count: 3 },          // 20
+{ name: 'Suitcase', count: 3 },       // 21
+{ name: 'Briefcase', count: 3 },      // 22
+{ name: 'Book', count: 3 },           // 23
+{ name: 'Test Tube', count: 3 },      // 24
+{ name: 'Violin', count: 3 },         // 25
+{ name: 'Solar', count: 3 },          // 26
+{ name: 'Spider Web', count: 3 },     // 27
+{ name: 'Piggy Bank', count: 3 },     // 28
+{ name: 'Diaper', count: 3 },         // 29
+{ name: 'Toilet', count: 3 },         // 30
+{ name: 'Snowman', count: 3 },        // 31
+{ name: 'Mask', count: 3 },           // 32
+{ name: 'Ghost', count: 3 },          // 33
+{ name: 'Fire', count: 3 },           // 34
+{ name: 'Butterfly', count: 3 },      // 35
+{ name: 'Dove', count: 3 },           // 36
+{ name: 'Turtle', count: 3 },         // 37
+{ name: 'Frog', count: 3 },           // 38
+{ name: 'Rat', count: 3 },            // 39
+{ name: 'Mouse', count: 3 },          // 40
+{ name: 'Rabbit', count: 3 },         // 41
+{ name: 'Octopus', count: 3 },        // 42
+{ name: 'Spider', count: 3 },         // 43
+{ name: 'Dragon', count: 3 },         // 44
+{ name: 'Eagle', count: 3 },          // 45
+{ name: 'Lion', count: 3 },           // 46
+{ name: 'Horse Head', count: 3 },     // 47
+{ name: 'Dolphin', count: 3 },        // 48
+{ name: 'Elephant', count: 3 },       // 49
+{ name: 'Unicorn', count: 3 },        // 50
+{ name: 'Poop', count: 3 },           // 51
+{ name: 'Trump', count: 3 },          // 52
+{ name: 'Bishop', count: 3 },         // 53
+{ name: 'Baby', count: 3 },           // 54
+{ name: 'Burger', count: 3 },         // 55
+{ name: 'King', count: 3 },           // 56
     // Add more battery types here as needed
     // You can also change 'count: 3' to 'count: 2' for any battery type
 ];
