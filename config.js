@@ -51,7 +51,7 @@ var CONFIG = {
     },
 
     GADGET_LOAD: {
-        DELAY_BEFORE_CHARGING: 0,  // Delay in ms after all gadget popup animations complete before charging starts
+        DELAY_BEFORE_CHARGING: 2000,  // Delay in ms after all gadget popup animations complete before charging starts
     },
 
     MERGE_GRID: {
