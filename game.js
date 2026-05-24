@@ -1628,7 +1628,8 @@ class GameScene extends Phaser.Scene {
                             p.coinAnimationComplete = true;
                         }
                         
-                        // Switch texture mid-shake for continuity
+                        if(P.GADGET_SPRITE_SWITCH_ON_TENSION_ENABLED){
+                            // Switch texture mid-shake for continuity
                         p.gadgetSprite.setTexture(burnedKey);
                         p.gadgetSprite.setTint(0xffffff);
                         p.gadgetSprite.setScale(1);
@@ -1640,6 +1641,13 @@ class GameScene extends Phaser.Scene {
                             p.gadgetSprite.setDisplaySize(p._gadgetDisplayWidth, p._gadgetDisplayHeight);
                         }
                         p.gadgetSprite.setAlpha(1);
+
+                        }
+                        else{
+                            p.gadgetSprite.setVisible(false);
+
+                        }
+                        
                         p.isDefeated = true;
                         p._shakeActive = false;
                         p._pulseActive = false;
@@ -2103,6 +2111,7 @@ class GameScene extends Phaser.Scene {
         }
         this.unlockDisplayText = this.add.text(curX, 0, '', {
             fontFamily: CONFIG.FONT_FAMILY, fontSize: U.TEXT_SIZE,
+            // color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
             color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
             strokeThickness: U.TEXT_STROKE_THICKNESS,
         }).setOrigin(0, 0.5);

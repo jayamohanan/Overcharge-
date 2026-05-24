@@ -65,9 +65,11 @@ var CONFIG = {
         CROWN_ICON_SIZE: 32,
         BATTERY_ICON_SIZE: 32,
         TEXT_SIZE: '24px',
-        TEXT_COLOR: '#FFD700',
-        TEXT_STROKE_COLOR: '#8B4513',
-        TEXT_STROKE_THICKNESS: 4,
+        // TEXT_COLOR: '#FFD700',
+        TEXT_COLOR: '#000000',
+        // TEXT_STROKE_COLOR: '#8B4513',
+        TEXT_STROKE_COLOR: '#000000',
+        TEXT_STROKE_THICKNESS: 0,
         CROWN_BATTERY_SPACING: 8,
         BATTERY_TEXT_SPACING: 5,
         VERTICAL_OFFSET: 20,
@@ -152,7 +154,7 @@ var CONFIG = {
         SPEED_VARIATION: 0.15,
         STAGGER_DELAY: 50,
         INITIAL_STACK_OFFSET: 0,
-        DELAY_BEFORE_FLY: 500,        // ms to wait after gadget disappears before coins fly
+        DELAY_BEFORE_FLY: 100,        // ms to wait after gadget disappears before coins fly
         EASE: 'Power2',
     },
 
@@ -287,6 +289,7 @@ var CONFIG = {
         GADGET_FLASH_ON_CHARGE_ENABLED: false, // toggle alpha flash effect when gadget receives charge
         //Gadget tension color change
         GADGET_TENSION_COLOR_CHANGE_ENABLED: false, // toggle color change effect based on tension level
+        GADGET_SPRITE_SWITCH_ON_TENSION_ENABLED: false, // toggle switching to alternate "tense" sprite when tension is high
     },
 };
 

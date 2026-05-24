@@ -51,7 +51,7 @@
 //   - Files: trump_1.png, trump_2.png
 var BATTERY_TYPES = [
       { name: 'Battery', count: 3 },        // 1
-{ name: 'Sock', count: 3 },           // 2
+{ name: 'Socks', count: 3 },           // 2
 { name: 'Feather', count: 3 },        // 3
 { name: 'Star', count: 3 },           // 4
 { name: 'Heart', count: 3 },          // 5

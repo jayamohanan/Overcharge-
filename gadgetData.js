@@ -99,13 +99,28 @@ var GADGET_REWARD = {
 // GADGET SPRITE DEFINITIONS
 // ============================================================
 var GADGET_SPRITES = [
-    {
-        "name": "ac",
-        "normal_sprite": "ac.png",
-        "burnedout_sprite": "ac_burnedout.png",
+     {
+        "name": "bulb",
+        "normal_sprite": "bulb.png",
+        "burnedout_sprite": "bulb_burnedout.png",
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
+     {
+        "name": "brush",
+        "normal_sprite": "brush.png",
+        "burnedout_sprite": "brush_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+    {
+        "name": "bluetooth_speaker",
+        "normal_sprite": "bluetooth_speaker.png",
+        "burnedout_sprite": "bluetooth_speaker_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+    
     {
         "name": "radio",
         "normal_sprite": "radio.png",
@@ -134,42 +149,7 @@ var GADGET_SPRITES = [
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
-    {
-        "name": "bluetooth_speaker",
-        "normal_sprite": "bluetooth_speaker.png",
-        "burnedout_sprite": "bluetooth_speaker_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
-        "name": "brush",
-        "normal_sprite": "brush.png",
-        "burnedout_sprite": "brush_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
-        "name": "bulb",
-        "normal_sprite": "bulb.png",
-        "burnedout_sprite": "bulb_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
-        "name": "car",
-        "normal_sprite": "car.png",
-        "burnedout_sprite": "car_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
-        "name": "cooktop",
-        "normal_sprite": "cooktop.png",
-        "burnedout_sprite": "cooktop_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
+     {
         "name": "desktop",
         "normal_sprite": "desktop.png",
         "burnedout_sprite": "desktop_burnedout.png",
@@ -180,13 +160,6 @@ var GADGET_SPRITES = [
         "name": "fridge",
         "normal_sprite": "fridge.png",
         "burnedout_sprite": "fridge_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
-    {
-        "name": "geyser",
-        "normal_sprite": "geyser.png",
-        "burnedout_sprite": "geyser_burnedout.png",
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
@@ -203,7 +176,35 @@ var GADGET_SPRITES = [
         "burnedout_sprite": "washing_machine_burnedout.png",
         "connection_height": 0.3,
         "connection_left_padding": 0.5
-    }
+    },
+    {
+        "name": "cooktop",
+        "normal_sprite": "cooktop.png",
+        "burnedout_sprite": "cooktop_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+    {
+        "name": "ac",
+        "normal_sprite": "ac.png",
+        "burnedout_sprite": "ac_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+    {
+        "name": "geyser",
+        "normal_sprite": "geyser.png",
+        "burnedout_sprite": "geyser_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+     {
+        "name": "car",
+        "normal_sprite": "car.png",
+        "burnedout_sprite": "car_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
 ];
 
 // ============================================================
