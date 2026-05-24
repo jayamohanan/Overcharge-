@@ -285,6 +285,8 @@ var CONFIG = {
         
         // Gadget visual feedback on charge
         GADGET_FLASH_ON_CHARGE_ENABLED: false, // toggle alpha flash effect when gadget receives charge
+        //Gadget tension color change
+        GADGET_TENSION_COLOR_CHANGE_ENABLED: false, // toggle color change effect based on tension level
     },
 };
 
