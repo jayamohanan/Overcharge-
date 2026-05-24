@@ -284,7 +284,7 @@ var CONFIG = {
         GADGET_AURA_SPARK_DURATION_MAX: 400, // max duration (ms) for sparks to reach gadget center
         
         // Gadget visual feedback on charge
-        GADGET_FLASH_ON_CHARGE_ENABLED: true, // toggle alpha flash effect when gadget receives charge
+        GADGET_FLASH_ON_CHARGE_ENABLED: false, // toggle alpha flash effect when gadget receives charge
     },
 };
 

@@ -334,6 +334,7 @@ class GameScene extends Phaser.Scene {
         // Smooth tension progression from yellowThresh to 100%
         const tensionProgress = (progress - yellowThresh) / (1 - yellowThresh);
 
+         if(P.GADGET_TENSION_COLOR_CHANGE_ENABLED){
         // ── Tint: smooth interpolation from white → subtle yellow → light orange ───
         // Start: 0xFFFFFF (white), Mid: 0xFFDD99 (subtle warm), End: 0xFFBB77 (light orange)
         const startR = 0xFF, startG = 0xFF, startB = 0xFF;
@@ -343,6 +344,7 @@ class GameScene extends Phaser.Scene {
         const g = Math.round(startG + (endG - startG) * tensionProgress);
         const b = Math.round(startB + (endB - startB) * tensionProgress);
         p.gadgetSprite.setTint((r << 16) | (g << 8) | b);
+        }
 
         // ── Flash (subtle, increases with tension) ──────────────────────────────
         if (P.GADGET_FLASH_ON_CHARGE_ENABLED) {
