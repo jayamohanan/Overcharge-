@@ -1,6 +1,46 @@
 // Overcharge! — main game scene
 // No physics engine — pure drag/drop battery merge + gadget charging
 
+class AssetManager {
+    constructor(scene) {
+        this.scene = scene;
+        this.loading = new Map();
+    }
+
+    ensureImage(key, url) {
+        if (this.scene.textures.exists(key)) {
+            return Promise.resolve();
+        }
+
+        if (this.loading.has(key)) {
+            return this.loading.get(key);
+        }
+
+        const promise = new Promise((resolve, reject) => {
+            this.scene.load.image(key, url);
+            this.scene.load.once(`filecomplete-image-${key}`, () => {
+                this.loading.delete(key);
+                resolve();
+            });
+            this.scene.load.once('loaderror', () => {
+                this.loading.delete(key);
+                reject();
+            });
+            this.scene.load.start();
+        });
+
+        this.loading.set(key, promise);
+        return promise;
+    }
+
+    ensureBattery(level) {
+        const key = `battery${level}`;
+        const data = getBatteryData(level);
+        if (!data) return Promise.resolve();
+        return this.ensureImage(key, `graphics/battery/${data.fileName}`);
+    }
+}
+
 class GameScene extends Phaser.Scene {
     constructor() { super('GameScene'); }
 
@@ -100,6 +140,14 @@ class GameScene extends Phaser.Scene {
     // PRELOAD
     // ================================================================
     preload() {
+
+        const startData = getBatteryData(CONFIG.BATTERY_START_LEVEL);
+    if (startData) {
+        this.load.image(
+            `battery${CONFIG.BATTERY_START_LEVEL}`,
+            `graphics/battery/${startData.fileName}`
+        );
+    }
         this.load.image('coin',          'graphics/coin.png');
         this.load.image('point',         'graphics/point.png');
         this.load.image('button',        'graphics/spawn_button3.png');
@@ -128,6 +176,7 @@ class GameScene extends Phaser.Scene {
     // CREATE
     // ================================================================
     create() {
+        this.assets = new AssetManager(this);
         const W = window.innerWidth || this.cameras.main.width;
         const H = window.innerHeight || this.cameras.main.height;
 
@@ -988,8 +1037,8 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    addBatteryToSlot(slotIndex, level) {
-         loadBatteryImageIfNeeded(this, level, () => {
+    async addBatteryToSlot(slotIndex, level) {
+        await this.assets.ensureBattery(level); // ADD THIS
         if (slotIndex < 0 || slotIndex >= 3) return;
         if (this.chargingSlots[slotIndex] !== null) return;
         const p   = this.platforms[slotIndex];
@@ -1033,7 +1082,6 @@ class GameScene extends Phaser.Scene {
         };
         draggableBg.setData('batteryData', batteryData);
         this.chargingSlots[slotIndex] = { level, chargePerMinute, batteryData };
-    });
     }
 
     removeBatteryFromSlot(slotIndex) {
@@ -2267,9 +2315,9 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    spawnBatteryInGrid(row, col, level) {
-        loadBatteryImageIfNeeded(this, level, () => {
-        const cell    = this.gridCells[row][col];
+    async spawnBatteryInGrid(row, col, level) {
+        await this.assets.ensureBattery(level); // ADD THIS
+        const cell = this.gridCells[row][col];
         const iconLvl = getBatteryIconLevel(level);
 
 
@@ -2303,7 +2351,7 @@ class GameScene extends Phaser.Scene {
         cell.isEmpty = false;
         this.playSpawnAnimation(batteryData);
         return batteryData;
-    });
+    
     }
 
     playSpawnAnimation(bd) {
@@ -2332,7 +2380,84 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    createButtons() {
+    // createButtons() {
+    //     const W = window.innerWidth || this.cameras.main.width;
+    //     const H = window.innerHeight || this.cameras.main.height;
+    //     const L = this.layoutConfig;
+        
+    //     let spawnButtonX, spawnButtonY, levelUpButtonX, levelUpButtonY;
+        
+    //     if (L.isPortrait) {
+    //         // Portrait: buttons at bottom, spawn and level-up side-by-side
+    //         spawnButtonX = W / 2;
+    //         spawnButtonY = H - CONFIG.BUTTON.BOTTOM_PADDING;
+    //         levelUpButtonX = W / 2 - CONFIG.BUTTON.BUTTON_SPACING;
+    //         levelUpButtonY = spawnButtonY;
+    //     } else {
+    //         // Landscape: buttons in left half, stacked vertically
+    //         const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
+    //         const gridH = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
+    //         const availHeight = L.gridHeight;
+    //         const gridTopMargin = (availHeight - gridH) / 2;
+    //         const gridBottomY = L.gridTop + gridTopMargin + gridH + this.CELL_SIZE / 2;
+            
+    //         spawnButtonX = L.gridLeft + L.gridWidth / 2;
+    //         spawnButtonY = gridBottomY + 30;  // Spacing below grid
+            
+    //         levelUpButtonX = spawnButtonX;
+    //         levelUpButtonY = spawnButtonY + CONFIG.BUTTON.SPAWN_HEIGHT + 30;  // Below spawn button
+    //     }
+
+    //     // Spawn button
+    //     const spawnBtn = this.add.container(spawnButtonX, spawnButtonY).setDepth(100);
+    //     const spawnBg  = this.add.image(0, 0, 'button')
+    //         .setDisplaySize(CONFIG.BUTTON.SPAWN_WIDTH + 30, CONFIG.BUTTON.SPAWN_HEIGHT + 30)
+    //         .setInteractive({ useHandCursor: true });
+    //     const iconLvl  = getBatteryIconLevel(this.spawnButtonLevel);
+    //     const spawnIcon = this.add.image(CONFIG.BUTTON.BATTERY_ICON_X, CONFIG.BUTTON.BATTERY_ICON_Y,
+    //         `battery${iconLvl}`)
+    //         .setDisplaySize(CONFIG.BUTTON.BATTERY_ICON_WIDTH, CONFIG.BUTTON.BATTERY_ICON_HEIGHT);
+    //     this.spawnButtonText = this.add.text(
+    //         CONFIG.BUTTON.COIN_TEXT_X, CONFIG.BUTTON.COIN_TEXT_Y, `${this.spawnCost}`, {
+    //             fontSize: CONFIG.BUTTON.COIN_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
+    //             color: '#FFFFFF', fontStyle: 'bold',
+    //         }).setOrigin(0.5);
+    //     const spawnCoinIcon = this.add.image(CONFIG.BUTTON.COIN_ICON_X, CONFIG.BUTTON.COIN_ICON_Y, 'coin')
+    //         .setDisplaySize(CONFIG.BUTTON.COIN_ICON_WIDTH, CONFIG.BUTTON.COIN_ICON_HEIGHT);
+    //     spawnBtn.add([spawnBg, spawnIcon, this.spawnButtonText, spawnCoinIcon]);
+    //     spawnBg.on('pointerdown', () => this.spawnBattery());
+    //     this.spawnButton   = spawnBtn;
+    //     this.spawnButtonBg = spawnBg;
+    //     this.spawnButtonIcon = spawnIcon;
+
+    //     // Level-up button
+    //     const lvlBtn = this.add.container(levelUpButtonX, levelUpButtonY).setDepth(100);
+    //     const lvlBg  = this.add.rectangle(0, 0,
+    //         CONFIG.BUTTON.LEVELUP_WIDTH, CONFIG.BUTTON.LEVELUP_HEIGHT,
+    //         hexColor(CONFIG.BUTTON.LEVELUP_COLOR))
+    //         .setStrokeStyle(CONFIG.BUTTON.LEVELUP_BORDER_WIDTH,
+    //             hexColor(CONFIG.BUTTON.LEVELUP_BORDER_COLOR))
+    //         .setInteractive({ useHandCursor: true });
+    //     const lvlTxt = this.add.text(0, 0, 'LVL UP\nALL', {
+    //         fontSize: '20px', fontFamily: CONFIG.FONT_FAMILY,
+    //         align: 'center', color: '#FFFFFF', fontStyle: 'bold',
+    //     }).setOrigin(0.5);
+    //     lvlBtn.add([lvlBg, lvlTxt]);
+    //     lvlBg.on('pointerdown', () => { if (this.levelUpButtonVisible) this.levelUpAll(); });
+    //     this.levelUpButton   = lvlBtn;
+    //     this.levelUpButtonBg = lvlBg;
+    //     this.levelUpButton.setVisible(false);
+    //     this.levelUpButtonVisible = false;
+    //     this.levelUpButtonShowTime = null;
+
+    //     this.time.addEvent({
+    //         delay: 1000, callback: this.checkLevelUpTimer, callbackScope: this, loop: true,
+    //     });
+    // }
+
+
+
+    async createButtons() {
         const W = window.innerWidth || this.cameras.main.width;
         const H = window.innerHeight || this.cameras.main.height;
         const L = this.layoutConfig;
@@ -2340,13 +2465,11 @@ class GameScene extends Phaser.Scene {
         let spawnButtonX, spawnButtonY, levelUpButtonX, levelUpButtonY;
         
         if (L.isPortrait) {
-            // Portrait: buttons at bottom, spawn and level-up side-by-side
             spawnButtonX = W / 2;
             spawnButtonY = H - CONFIG.BUTTON.BOTTOM_PADDING;
             levelUpButtonX = W / 2 - CONFIG.BUTTON.BUTTON_SPACING;
             levelUpButtonY = spawnButtonY;
         } else {
-            // Landscape: buttons in left half, stacked vertically
             const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
             const gridH = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
             const availHeight = L.gridHeight;
@@ -2354,10 +2477,10 @@ class GameScene extends Phaser.Scene {
             const gridBottomY = L.gridTop + gridTopMargin + gridH + this.CELL_SIZE / 2;
             
             spawnButtonX = L.gridLeft + L.gridWidth / 2;
-            spawnButtonY = gridBottomY + 30;  // Spacing below grid
+            spawnButtonY = gridBottomY + 30;
             
             levelUpButtonX = spawnButtonX;
-            levelUpButtonY = spawnButtonY + CONFIG.BUTTON.SPAWN_HEIGHT + 30;  // Below spawn button
+            levelUpButtonY = spawnButtonY + CONFIG.BUTTON.SPAWN_HEIGHT + 30;
         }
 
         // Spawn button
@@ -2365,10 +2488,6 @@ class GameScene extends Phaser.Scene {
         const spawnBg  = this.add.image(0, 0, 'button')
             .setDisplaySize(CONFIG.BUTTON.SPAWN_WIDTH + 30, CONFIG.BUTTON.SPAWN_HEIGHT + 30)
             .setInteractive({ useHandCursor: true });
-        const iconLvl  = getBatteryIconLevel(this.spawnButtonLevel);
-        const spawnIcon = this.add.image(CONFIG.BUTTON.BATTERY_ICON_X, CONFIG.BUTTON.BATTERY_ICON_Y,
-            `battery${iconLvl}`)
-            .setDisplaySize(CONFIG.BUTTON.BATTERY_ICON_WIDTH, CONFIG.BUTTON.BATTERY_ICON_HEIGHT);
         this.spawnButtonText = this.add.text(
             CONFIG.BUTTON.COIN_TEXT_X, CONFIG.BUTTON.COIN_TEXT_Y, `${this.spawnCost}`, {
                 fontSize: CONFIG.BUTTON.COIN_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
@@ -2376,10 +2495,20 @@ class GameScene extends Phaser.Scene {
             }).setOrigin(0.5);
         const spawnCoinIcon = this.add.image(CONFIG.BUTTON.COIN_ICON_X, CONFIG.BUTTON.COIN_ICON_Y, 'coin')
             .setDisplaySize(CONFIG.BUTTON.COIN_ICON_WIDTH, CONFIG.BUTTON.COIN_ICON_HEIGHT);
-        spawnBtn.add([spawnBg, spawnIcon, this.spawnButtonText, spawnCoinIcon]);
+
+        spawnBtn.add([spawnBg, this.spawnButtonText, spawnCoinIcon]);
         spawnBg.on('pointerdown', () => this.spawnBattery());
         this.spawnButton   = spawnBtn;
         this.spawnButtonBg = spawnBg;
+        this.spawnButtonIcon = null;
+
+        // Wait for battery texture then add icon
+        const iconLvl = getBatteryIconLevel(this.spawnButtonLevel);
+        await this.assets.ensureBattery(iconLvl);
+        const spawnIcon = this.add.image(CONFIG.BUTTON.BATTERY_ICON_X, CONFIG.BUTTON.BATTERY_ICON_Y,
+            `battery${iconLvl}`)
+            .setDisplaySize(CONFIG.BUTTON.BATTERY_ICON_WIDTH, CONFIG.BUTTON.BATTERY_ICON_HEIGHT);
+        spawnBtn.add(spawnIcon);
         this.spawnButtonIcon = spawnIcon;
 
         // Level-up button
@@ -2531,14 +2660,36 @@ class GameScene extends Phaser.Scene {
         this.updateSpawnButton();
     }
 
-    updateSpawnButton() {
+    // updateSpawnButton() {
+    //     if (this.highestBatteryLevel >= 9) {
+    //         const nl = this.highestBatteryLevel - 7;
+    //         if (nl > this.spawnButtonLevel) {
+    //             this.spawnButtonLevel = nl;
+    //             this.spawnCost = nl * 10;
+    //             this.spawnButtonText.setText(`${this.spawnCost}`);
+    //             this.spawnButtonIcon.setTexture(`battery${getBatteryIconLevel(nl)}`);
+    //         }
+    //     }
+    //     if (this.coins < this.spawnCost) {
+    //         this.spawnButtonBg.setTint(0x888888).disableInteractive();
+    //     } else {
+    //         this.spawnButtonBg.setTint(0xffffff).setInteractive({ useHandCursor: true });
+    //     }
+    // }
+
+
+    async updateSpawnButton() {
         if (this.highestBatteryLevel >= 9) {
             const nl = this.highestBatteryLevel - 7;
             if (nl > this.spawnButtonLevel) {
                 this.spawnButtonLevel = nl;
                 this.spawnCost = nl * 10;
                 this.spawnButtonText.setText(`${this.spawnCost}`);
-                this.spawnButtonIcon.setTexture(`battery${getBatteryIconLevel(nl)}`);
+                const iconLvl = getBatteryIconLevel(nl);
+                await this.assets.ensureBattery(iconLvl);
+                if (this.spawnButtonIcon) {
+                    this.spawnButtonIcon.setTexture(`battery${iconLvl}`);
+                }
             }
         }
         if (this.coins < this.spawnCost) {
