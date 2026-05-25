@@ -55,7 +55,7 @@ var BATTERY_TYPES = [
 { name: 'Feather', count: 3 },        // 3
 { name: 'Star', count: 3 },           // 4
 { name: 'Heart', count: 3 },          // 5
-{ name: 'Scissors', count: 3 },       // 6
+{ name: 'Scissor', count: 3 },       // 6
 { name: 'Shield', count: 3 },         // 7
 { name: 'Jar', count: 3 },            // 8
 { name: 'Jug', count: 3 },            // 9
@@ -76,7 +76,7 @@ var BATTERY_TYPES = [
 { name: 'Test Tube', count: 3 },      // 24
 { name: 'Violin', count: 3 },         // 25
 { name: 'Solar', count: 3 },          // 26
-{ name: 'Spider Web', count: 3 },     // 27
+{ name: 'Spider', count: 3 },     // 27
 { name: 'Piggy Bank', count: 3 },     // 28
 { name: 'Diaper', count: 3 },         // 29
 { name: 'Toilet', count: 3 },         // 30
