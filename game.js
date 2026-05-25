@@ -42,6 +42,58 @@ class GameScene extends Phaser.Scene {
 
         this.chargingSlots    = [null, null, null];
         this.chargingInterval = null;
+
+        // Layout state for responsive design
+        this.isPortrait         = true;  // Detected in create()
+        this.layoutConfig       = {};    // Will store calculated layout values
+        this.platformsContainer = null;
+        this.gridContainer      = null;
+        this.uiContainer        = null;
+    }
+
+    // ================================================================
+    // LAYOUT HELPERS
+    // ================================================================
+    calculateLayout() {
+        // Use window dimensions for orientation detection (not fixed canvas size)
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        this.isPortrait = H > W;  // Portrait if height > width
+
+        const config = {
+            screenWidth: W,
+            screenHeight: H,
+            isPortrait: this.isPortrait,
+        };
+
+        if (this.isPortrait) {
+            // Portrait: Top half (platforms) + Bottom half (grid + buttons)
+            config.platformsTop = 0;
+            config.platformsHeight = H * 0.45;
+            
+            config.gridBottom = H;
+            config.gridHeight = H * 0.55;
+            config.gridTop = config.gridBottom - config.gridHeight;
+            
+            config.platformsCenterX = W / 2;
+            config.gridCenterX = W / 2;
+        } else {
+            // Landscape: Left half (grid + buttons) + Right half (platforms)
+            config.gridLeft = 0;
+            config.gridWidth = W * 0.5;
+            config.gridCenterX = config.gridWidth / 2;
+            
+            config.platformsLeft = config.gridWidth;
+            config.platformsWidth = W * 0.5;
+            config.platformsCenterX = config.platformsLeft + config.platformsWidth / 2;
+            
+            config.platformsTop = 0;
+            config.platformsHeight = H;
+            config.gridTop = 0;
+            config.gridHeight = H;
+        }
+
+        this.layoutConfig = config;
     }
 
     // ================================================================
@@ -77,8 +129,11 @@ class GameScene extends Phaser.Scene {
     // CREATE
     // ================================================================
     create() {
-        const W = this.cameras.main.width;
-        const H = this.cameras.main.height;
+        const W = window.innerWidth || this.cameras.main.width;
+        const H = window.innerHeight || this.cameras.main.height;
+
+        // Calculate layout based on orientation
+        this.calculateLayout();
 
         // Background
         const bgGfx = this.add.graphics();
@@ -146,12 +201,31 @@ class GameScene extends Phaser.Scene {
     // ================================================================
     createPlatforms() {
         const P = CONFIG.PLATFORM;
-        for (let i = 0; i < 3; i++) {
-            const cy  = P.Y_POSITIONS[i];
-            const ssz = P.SLOT_SIZE;
+        const L = this.layoutConfig;
+        
+        // Calculate responsive Y positions based on available platform height
+        const platformHeight = L.isPortrait ? L.platformsHeight : L.platformsHeight;
+        const baseY = L.isPortrait ? L.platformsTop + platformHeight * 0.15 : L.platformsTop + platformHeight * 0.15;
+        const spacingY = platformHeight / 3.5;  // Distribute 3 platforms across available height
+        
+        const responsiveYPositions = [
+            baseY,
+            baseY + spacingY,
+            baseY + spacingY * 2
+        ];
 
-            // Calculate slot position from left padding
-            const slotX = P.STRIPE_X + P.SLOT_PADDING_FROM_LEFT + ssz / 2;
+        for (let i = 0; i < 3; i++) {
+            const cy  = responsiveYPositions[i];  // Use responsive Y instead of P.Y_POSITIONS[i]
+            const ssz = P.SLOT_SIZE;
+            
+            // Center horizontally based on layout
+            const centerX = L.platformsCenterX;
+            
+            // Center the stripe at centerX
+            const stripeLeftEdge = centerX - P.STRIPE_WIDTH / 2;
+            
+            // Calculate slot position from centered stripe's left edge
+            const slotX = stripeLeftEdge + P.SLOT_PADDING_FROM_LEFT + ssz / 2;
             const slotY = cy - P.STRIPE_HEIGHT / 2 - P.SLOT_ABOVE_STRIPE - ssz / 2;
             
             // Calculate debug rect position from slot right edge
@@ -161,7 +235,7 @@ class GameScene extends Phaser.Scene {
             // Stripe — plain background bar, nothing drawn on it
             const stripe = this.add.graphics();
             stripe.fillStyle(hexColor(P.STRIPE_COLOR), P.STRIPE_ALPHA);
-            stripe.fillRoundedRect(P.STRIPE_X, cy - P.STRIPE_HEIGHT / 2, P.STRIPE_WIDTH, P.STRIPE_HEIGHT, 6);
+            stripe.fillRoundedRect(stripeLeftEdge, cy - P.STRIPE_HEIGHT / 2, P.STRIPE_WIDTH, P.STRIPE_HEIGHT, 6);
             stripe.setDepth(2);
 
             // Slot backgrounds
@@ -190,6 +264,7 @@ class GameScene extends Phaser.Scene {
             this.platforms.push({
                 index: i,
                 centerY: cy,
+                centerX: centerX,  // Store centerX for responsive repositioning
                 stripe,
                 slotX: slotX, slotY: slotY, slotSize: ssz,
                 slotBg, slotBgFilled,
@@ -1997,20 +2072,39 @@ class GameScene extends Phaser.Scene {
     // BATTERY MERGE GRID (BOTTOM HALF)
     // ================================================================
     createGrid() {
-        const W = this.cameras.main.width;
-        const H = this.cameras.main.height;
+        const W = window.innerWidth || this.cameras.main.width;
+        const H = window.innerHeight || this.cameras.main.height;
+        const L = this.layoutConfig;
+        
         const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
         const gridH = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
-        const buttonY    = H - CONFIG.BUTTON.BOTTOM_PADDING;
-        const gridBotY   = buttonY - CONFIG.BUTTON.SPAWN_HEIGHT / 2 - CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
-        this.gridStartY  = gridBotY - gridH + this.CELL_SIZE / 2;
-        this.gridStartX  = (W - gridW) / 2 + this.CELL_SIZE / 2;
+        
+        let gridCenterX, gridStartX, gridStartY;
+        
+        if (L.isPortrait) {
+            // Portrait: center horizontally, position below platforms
+            const buttonY    = L.gridTop + L.gridHeight - CONFIG.BUTTON.BOTTOM_PADDING;
+            const gridBotY   = buttonY - CONFIG.BUTTON.SPAWN_HEIGHT / 2 - CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
+            gridStartY  = gridBotY - gridH + this.CELL_SIZE / 2;
+            gridStartX  = (W - gridW) / 2 + this.CELL_SIZE / 2;
+            gridCenterX = W / 2;
+        } else {
+            // Landscape: position on left half, vertically centered
+            const availHeight = L.gridHeight;
+            const gridTopMargin = (availHeight - gridH) / 2;
+            gridStartY = L.gridTop + gridTopMargin + this.CELL_SIZE / 2;
+            gridStartX = L.gridLeft + (L.gridWidth - gridW) / 2 + this.CELL_SIZE / 2;
+            gridCenterX = L.gridLeft + L.gridWidth / 2;
+        }
+
+        this.gridStartX = gridStartX;
+        this.gridStartY = gridStartY;
 
         const pad  = CONFIG.CELL.GRID_PANEL_PADDING;
         const panW = gridW + 2 * pad;
         const panH = gridH + 2 * pad;
-        const cx   = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
-        const cy   = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
+        const cx   = gridStartX - this.CELL_SIZE / 2 + gridW / 2;
+        const cy   = gridStartY - this.CELL_SIZE / 2 + gridH / 2;
 
         const panel = this.add.image(cx, cy, 'grid_panel');
         panel.setDisplaySize(panW, panH).setDepth(1.5);
@@ -2019,8 +2113,8 @@ class GameScene extends Phaser.Scene {
         for (let row = 0; row < this.GRID_ROWS; row++) {
             this.gridCells[row] = [];
             for (let col = 0; col < this.GRID_COLS; col++) {
-                const x = this.gridStartX + col * (this.CELL_SIZE + this.CELL_GAP);
-                const y = this.gridStartY + row * (this.CELL_SIZE + this.CELL_GAP);
+                const x = gridStartX + col * (this.CELL_SIZE + this.CELL_GAP);
+                const y = gridStartY + row * (this.CELL_SIZE + this.CELL_GAP);
 
                 const emptyCell = this.add.graphics().setDepth(2);
                 emptyCell.fillStyle(hexColor(CONFIG.CELL.INSET_SHADOW_COLOR), 1);
@@ -2045,15 +2139,34 @@ class GameScene extends Phaser.Scene {
     }
 
     createCoinDisplay() {
+        const W = window.innerWidth || this.cameras.main.width;
+        const H = window.innerHeight || this.cameras.main.height;
+        const L = this.layoutConfig;
+        
         const gridW  = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
         const gridH  = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
         const pad    = CONFIG.CELL.GRID_PANEL_PADDING;
         const panW   = gridW + 2 * pad;
         const panH   = gridH + 2 * pad;
-        const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
-        const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
-        const coinY  = panCY - panH / 2 - 40;
-        const rightEdge = panCX + panW / 2;
+        
+        let coinY, rightEdge;
+        
+        if (L.isPortrait) {
+            // Portrait: above grid panel
+            const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
+            const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
+            coinY = panCY - panH / 2 - 40;
+            rightEdge = panCX + panW / 2;
+        } else {
+            // Landscape: position above grid in left half
+            const panCX = L.gridLeft + L.gridWidth / 2;
+            const availHeight = L.gridHeight;
+            const gridTopMargin = (availHeight - gridH) / 2;
+            const panCY = L.gridTop + gridTopMargin + gridH / 2;
+            
+            coinY = panCY - panH / 2 - 40;
+            rightEdge = L.gridLeft + L.gridWidth - 20;
+        }
 
         const iconX = rightEdge - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2
                       - CONFIG.COIN_COUNTER.PADDING_FROM_SCREEN_RIGHT;
@@ -2078,15 +2191,30 @@ class GameScene extends Phaser.Scene {
             this.unlockDisplayContainer = this.unlockDisplayText = this.unlockDisplayBatteryIcon = null;
             return;
         }
+        
+        const L = this.layoutConfig;
         const gridW  = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
         const gridH  = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
         const pad    = CONFIG.CELL.GRID_PANEL_PADDING;
         const panH   = gridH + 2 * pad;
         const panW   = gridW + 2 * pad;
-        const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
-        const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
-        const displayY  = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
-        const leftEdge  = panCX - panW / 2;
+        
+        let displayY, leftEdge;
+        
+        if (L.isPortrait) {
+            // Portrait: below grid panel
+            const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
+            const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
+            displayY  = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
+            leftEdge  = panCX - panW / 2;
+        } else {
+            // Landscape: position above grid in left half
+            const availHeight = L.gridHeight;
+            const gridTopMargin = (availHeight - gridH) / 2;
+            const panCY = L.gridTop + gridTopMargin + gridH / 2;
+            displayY = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
+            leftEdge = L.gridLeft + 20;
+        }
 
         this.unlockDisplayContainer = this.add.container(0, displayY).setDepth(10);
         const elems = [];
@@ -2201,12 +2329,35 @@ class GameScene extends Phaser.Scene {
     }
 
     createButtons() {
-        const W = this.cameras.main.width;
-        const H = this.cameras.main.height;
-        const bY = H - CONFIG.BUTTON.BOTTOM_PADDING;
+        const W = window.innerWidth || this.cameras.main.width;
+        const H = window.innerHeight || this.cameras.main.height;
+        const L = this.layoutConfig;
+        
+        let spawnButtonX, spawnButtonY, levelUpButtonX, levelUpButtonY;
+        
+        if (L.isPortrait) {
+            // Portrait: buttons at bottom, spawn and level-up side-by-side
+            spawnButtonX = W / 2;
+            spawnButtonY = H - CONFIG.BUTTON.BOTTOM_PADDING;
+            levelUpButtonX = W / 2 - CONFIG.BUTTON.BUTTON_SPACING;
+            levelUpButtonY = spawnButtonY;
+        } else {
+            // Landscape: buttons in left half, stacked vertically
+            const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
+            const gridH = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
+            const availHeight = L.gridHeight;
+            const gridTopMargin = (availHeight - gridH) / 2;
+            const gridBottomY = L.gridTop + gridTopMargin + gridH + this.CELL_SIZE / 2;
+            
+            spawnButtonX = L.gridLeft + L.gridWidth / 2;
+            spawnButtonY = gridBottomY + 30;  // Spacing below grid
+            
+            levelUpButtonX = spawnButtonX;
+            levelUpButtonY = spawnButtonY + CONFIG.BUTTON.SPAWN_HEIGHT + 30;  // Below spawn button
+        }
 
         // Spawn button
-        const spawnBtn = this.add.container(W / 2, bY).setDepth(100);
+        const spawnBtn = this.add.container(spawnButtonX, spawnButtonY).setDepth(100);
         const spawnBg  = this.add.image(0, 0, 'button')
             .setDisplaySize(CONFIG.BUTTON.SPAWN_WIDTH + 30, CONFIG.BUTTON.SPAWN_HEIGHT + 30)
             .setInteractive({ useHandCursor: true });
@@ -2228,7 +2379,7 @@ class GameScene extends Phaser.Scene {
         this.spawnButtonIcon = spawnIcon;
 
         // Level-up button
-        const lvlBtn = this.add.container(W / 2 - CONFIG.BUTTON.BUTTON_SPACING, bY).setDepth(100);
+        const lvlBtn = this.add.container(levelUpButtonX, levelUpButtonY).setDepth(100);
         const lvlBg  = this.add.rectangle(0, 0,
             CONFIG.BUTTON.LEVELUP_WIDTH, CONFIG.BUTTON.LEVELUP_HEIGHT,
             hexColor(CONFIG.BUTTON.LEVELUP_COLOR))
@@ -2253,16 +2404,25 @@ class GameScene extends Phaser.Scene {
     }
 
     createStartOverlay() {
-        const W = this.cameras.main.width;
-        const H = this.cameras.main.height;
+        const W = window.innerWidth || this.cameras.main.width;
+        const H = window.innerHeight || this.cameras.main.height;
+        const L = this.layoutConfig;
+        
+        // Use actual camera/game dimensions for the overlay rect to ensure full coverage
+        const gameW = this.cameras.main.width;
+        const gameH = this.cameras.main.height;
+        
         const maskColor = parseInt(CONFIG.POINTER.TUTORIAL_MASK_COLOR.substring(1), 16);
-        this.startOverlay = this.add.rectangle(W / 2, H / 2, W, H, maskColor,
+        this.startOverlay = this.add.rectangle(gameW / 2, gameH / 2, gameW, gameH, maskColor,
             CONFIG.POINTER.TUTORIAL_MASK_OPACITY).setAlpha(0).setDepth(99);
 
+        // Position pointer based on spawn button location
+        let pointerX = this.spawnButton.x;
         const pY = this.spawnButton.y + CONFIG.POINTER.OFFSET_Y;
+        
         const strokeColor = parseInt(CONFIG.POINTER.STROKE_COLOR.substring(1), 16);
         const fillColor   = parseInt(CONFIG.POINTER.FILL_COLOR.substring(1), 16);
-        const pCont = this.add.container(this.spawnButton.x, pY).setAlpha(0).setDepth(102);
+        const pCont = this.add.container(pointerX, pY).setAlpha(0).setDepth(102);
         for (let a = 0; a < 360; a += 45) {
             const rad = a * Math.PI / 180;
             const sc  = this.add.image(
@@ -2849,6 +3009,10 @@ class GameScene extends Phaser.Scene {
 // ================================================================
 // PHASER CONFIG + BOOT
 // ================================================================
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+const GAME_WIDTH = isMobile ? 720 : 1280;
+const GAME_HEIGHT = isMobile ? 1280 : 720;
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
@@ -2857,9 +3021,10 @@ const config = {
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 720,
-        height: 1280,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT,
         resolution: window.devicePixelRatio || 1,
+        expandParent: true,
     },
     render: { antialias: true, pixelArt: false },
 };
