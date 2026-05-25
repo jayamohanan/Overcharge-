@@ -447,6 +447,39 @@ function getHighestBatteryLevel() {
 function getAllBatteryLevels() {
     return Object.keys(LEVEL_TO_BATTERY_INFO).map(Number).sort((a, b) => a - b);
 }
+// function loadBatteryImageIfNeeded(scene, level) {
+//     const key = `battery${level}`;
+//     if (scene.textures.exists(key)) return; // already loaded, skip
+    
+//     const batteryData = getBatteryData(level);
+//     if (!batteryData) return;
+    
+//     scene.load.image(key, `graphics/battery/${batteryData.fileName}`);
+//     scene.load.start(); // fires instantly, non-blocking
+// }
+function loadBatteryImageIfNeeded(scene, level, callback) {
+    const key = `battery${level}`;
+    
+    // Already loaded - call callback immediately
+    if (scene.textures.exists(key)) {
+        if (callback) callback();
+        return;
+    }
+    
+    const batteryData = getBatteryData(level);
+    if (!batteryData) {
+        if (callback) callback();
+        return;
+    }
+    
+    // Listen for this specific texture to finish loading
+    scene.load.once(`filecomplete-image-${key}`, () => {
+        if (callback) callback();
+    });
+    
+    scene.load.image(key, `graphics/battery/${batteryData.fileName}`);
+    scene.load.start();
+}
 
 // Create lookup tables for legacy compatibility
 var BATTERY_DATA_BY_LEVEL = {};

@@ -100,7 +100,6 @@ class GameScene extends Phaser.Scene {
     // PRELOAD
     // ================================================================
     preload() {
-        loadBatteryImagesFromCache(this);
         this.load.image('coin',          'graphics/coin.png');
         this.load.image('point',         'graphics/point.png');
         this.load.image('button',        'graphics/spawn_button3.png');
@@ -990,6 +989,7 @@ class GameScene extends Phaser.Scene {
     }
 
     addBatteryToSlot(slotIndex, level) {
+         loadBatteryImageIfNeeded(this, level, () => {
         if (slotIndex < 0 || slotIndex >= 3) return;
         if (this.chargingSlots[slotIndex] !== null) return;
         const p   = this.platforms[slotIndex];
@@ -1033,6 +1033,7 @@ class GameScene extends Phaser.Scene {
         };
         draggableBg.setData('batteryData', batteryData);
         this.chargingSlots[slotIndex] = { level, chargePerMinute, batteryData };
+    });
     }
 
     removeBatteryFromSlot(slotIndex) {
@@ -2267,8 +2268,10 @@ class GameScene extends Phaser.Scene {
     }
 
     spawnBatteryInGrid(row, col, level) {
+        loadBatteryImageIfNeeded(this, level, () => {
         const cell    = this.gridCells[row][col];
         const iconLvl = getBatteryIconLevel(level);
+
 
         const draggableBg = this.add.rectangle(
             cell.x, cell.y, this.CELL_SIZE, this.CELL_SIZE,
@@ -2300,6 +2303,7 @@ class GameScene extends Phaser.Scene {
         cell.isEmpty = false;
         this.playSpawnAnimation(batteryData);
         return batteryData;
+    });
     }
 
     playSpawnAnimation(bd) {
