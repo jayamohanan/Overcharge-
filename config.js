@@ -308,29 +308,46 @@ function checkFileExists(url) {
     });
 }
 
+// async function initBatteryImagePaths() {
+//     if (typeof BATTERY_TYPES === 'undefined' || !BATTERY_TYPES) {
+//         console.error('BATTERY_TYPES not found! Make sure batteryChargeData.js is loaded first.');
+//         return;
+//     }
+    
+//     // Get all battery levels from the new system
+//     const highestLevel = getHighestBatteryLevel();
+    
+//     for (let level = 1; level <= highestLevel; level++) {
+//         const batteryData = getBatteryData(level);
+//         if (!batteryData) continue;
+        
+//         const path = `graphics/battery/${batteryData.fileName}`;
+//         const ok = await checkFileExists(path);
+        
+//         if (ok) {
+//             BATTERY_IMAGE_PATHS[level] = path;
+//         } else {
+//             console.warn(`Battery image not found: ${path} for level ${level} (${batteryData.displayName})`);
+//         }
+//     }
+//     console.log(`Loaded ${Object.keys(BATTERY_IMAGE_PATHS).length} battery sprites`);
+// }
 async function initBatteryImagePaths() {
     if (typeof BATTERY_TYPES === 'undefined' || !BATTERY_TYPES) {
         console.error('BATTERY_TYPES not found! Make sure batteryChargeData.js is loaded first.');
         return;
     }
     
-    // Get all battery levels from the new system
+    // Build paths directly from BATTERY_TYPES - no network probing needed
     const highestLevel = getHighestBatteryLevel();
     
     for (let level = 1; level <= highestLevel; level++) {
         const batteryData = getBatteryData(level);
         if (!batteryData) continue;
-        
-        const path = `graphics/battery/${batteryData.fileName}`;
-        const ok = await checkFileExists(path);
-        
-        if (ok) {
-            BATTERY_IMAGE_PATHS[level] = path;
-        } else {
-            console.warn(`Battery image not found: ${path} for level ${level} (${batteryData.displayName})`);
-        }
+        BATTERY_IMAGE_PATHS[level] = `graphics/battery/${batteryData.fileName}`;
     }
-    console.log(`Loaded ${Object.keys(BATTERY_IMAGE_PATHS).length} battery sprites`);
+    
+    console.log(`Registered ${Object.keys(BATTERY_IMAGE_PATHS).length} battery sprites`);
 }
 
 function loadBatteryImagesFromCache(scene) {
