@@ -2235,6 +2235,69 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(1, 0.5).setDepth(10);
     }
 
+    // createBatteryUnlockDisplay() {
+    //     if (!CONFIG.BATTERY_UNLOCK_DISPLAY.DISPLAY_CROWN_PANEL) {
+    //         this.unlockDisplayContainer = this.unlockDisplayText = this.unlockDisplayBatteryIcon = null;
+    //         return;
+    //     }
+        
+    //     const L = this.layoutConfig;
+    //     const gridW  = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
+    //     const gridH  = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
+    //     const pad    = CONFIG.CELL.GRID_PANEL_PADDING;
+    //     const panH   = gridH + 2 * pad;
+    //     const panW   = gridW + 2 * pad;
+        
+    //     let displayY, leftEdge;
+        
+    //     if (L.isPortrait) {
+    //         // Portrait: below grid panel
+    //         const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
+    //         const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
+    //         displayY  = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
+    //         leftEdge  = panCX - panW / 2;
+    //     } else {
+    //         // Landscape: position above grid in left half
+    //         const availHeight = L.gridHeight;
+    //         const gridTopMargin = (availHeight - gridH) / 2;
+    //         const panCY = L.gridTop + gridTopMargin + gridH / 2;
+    //         displayY = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
+    //         leftEdge = L.gridLeft + 20;
+    //     }
+
+    //     this.unlockDisplayContainer = this.add.container(0, displayY).setDepth(10);
+    //     const elems = [];
+    //     let curX = leftEdge + CONFIG.BATTERY_UNLOCK_DISPLAY.PADDING_FROM_LEFT;
+    //     const U = CONFIG.BATTERY_UNLOCK_DISPLAY;
+
+    //     if (U.SHOW_CROWN_ICON) {
+    //         const crown = this.add.image(curX + U.CROWN_ICON_SIZE / 2, 0, 'battery_crown')
+    //             .setDisplaySize(U.CROWN_ICON_SIZE, U.CROWN_ICON_SIZE);
+    //         elems.push(crown);
+    //         curX += U.CROWN_ICON_SIZE + U.CROWN_BATTERY_SPACING;
+    //     }
+    //     if (U.SHOW_BATTERY_ICON) {
+    //         this.unlockDisplayBatteryIcon = this.add.image(
+    //             curX + U.BATTERY_ICON_SIZE / 2, 0,
+    //             `battery${getBatteryIconLevel(CONFIG.BATTERY_START_LEVEL)}`)
+    //             .setDisplaySize(U.BATTERY_ICON_SIZE, U.BATTERY_ICON_SIZE);
+    //         elems.push(this.unlockDisplayBatteryIcon);
+    //         curX += U.BATTERY_ICON_SIZE + U.BATTERY_TEXT_SPACING;
+    //     } else {
+    //         this.unlockDisplayBatteryIcon = null;
+    //     }
+    //     this.unlockDisplayText = this.add.text(curX, 0, '', {
+    //         fontFamily: CONFIG.FONT_FAMILY, fontSize: U.TEXT_SIZE,
+    //         // color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
+    //         color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
+    //         strokeThickness: U.TEXT_STROKE_THICKNESS,
+    //     }).setOrigin(0, 0.5);
+    //     elems.push(this.unlockDisplayText);
+    //     this.unlockDisplayContainer.add(elems);
+    //     this.updateBatteryUnlockDisplay(CONFIG.BATTERY_START_LEVEL);
+    // }
+
+
     createBatteryUnlockDisplay() {
         if (!CONFIG.BATTERY_UNLOCK_DISPLAY.DISPLAY_CROWN_PANEL) {
             this.unlockDisplayContainer = this.unlockDisplayText = this.unlockDisplayBatteryIcon = null;
@@ -2249,32 +2312,25 @@ class GameScene extends Phaser.Scene {
         const panW   = gridW + 2 * pad;
         
         let displayY, leftEdge;
-        
-        if (L.isPortrait) {
-            // Portrait: below grid panel
-            const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
-            const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
-            displayY  = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
-            leftEdge  = panCX - panW / 2;
-        } else {
-            // Landscape: position above grid in left half
-            const availHeight = L.gridHeight;
-            const gridTopMargin = (availHeight - gridH) / 2;
-            const panCY = L.gridTop + gridTopMargin + gridH / 2;
-            displayY = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
-            leftEdge = L.gridLeft + 20;
-        }
 
-        this.unlockDisplayContainer = this.add.container(0, displayY).setDepth(10);
-        const elems = [];
-        let curX = leftEdge + CONFIG.BATTERY_UNLOCK_DISPLAY.PADDING_FROM_LEFT;
+         leftEdge = this.gridStartX - this.CELL_SIZE / 2 - pad;
+        const panCY = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
+        displayY = panCY - panH / 2 - CONFIG.BATTERY_UNLOCK_DISPLAY.VERTICAL_OFFSET;
+        
+        // this.add.circle(leftEdge, displayY, 5, 0xFF0000).setDepth(9999);
+
+        // Container anchored to grid panel left edge
+        this.unlockDisplayContainer = this.add.container(leftEdge, displayY).setDepth(10);
+        
         const U = CONFIG.BATTERY_UNLOCK_DISPLAY;
+        const elems = [];
+        let curX = U.PADDING_FROM_LEFT;  // padding from container left (which is grid left edge)
 
         if (U.SHOW_CROWN_ICON) {
             const crown = this.add.image(curX + U.CROWN_ICON_SIZE / 2, 0, 'battery_crown')
                 .setDisplaySize(U.CROWN_ICON_SIZE, U.CROWN_ICON_SIZE);
             elems.push(crown);
-            curX += U.CROWN_ICON_SIZE + U.CROWN_BATTERY_SPACING;
+            curX += U.CROWN_ICON_SIZE + U.CROWN_BATTERY_SPACING;  // next element starts from right edge of crown
         }
         if (U.SHOW_BATTERY_ICON) {
             this.unlockDisplayBatteryIcon = this.add.image(
@@ -2282,17 +2338,19 @@ class GameScene extends Phaser.Scene {
                 `battery${getBatteryIconLevel(CONFIG.BATTERY_START_LEVEL)}`)
                 .setDisplaySize(U.BATTERY_ICON_SIZE, U.BATTERY_ICON_SIZE);
             elems.push(this.unlockDisplayBatteryIcon);
-            curX += U.BATTERY_ICON_SIZE + U.BATTERY_TEXT_SPACING;
+            curX += U.BATTERY_ICON_SIZE + U.BATTERY_TEXT_SPACING;  // next element starts from right edge of battery icon
         } else {
             this.unlockDisplayBatteryIcon = null;
         }
+
+        // Text starts from right edge of last icon
         this.unlockDisplayText = this.add.text(curX, 0, '', {
             fontFamily: CONFIG.FONT_FAMILY, fontSize: U.TEXT_SIZE,
-            // color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
             color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
             strokeThickness: U.TEXT_STROKE_THICKNESS,
         }).setOrigin(0, 0.5);
         elems.push(this.unlockDisplayText);
+
         this.unlockDisplayContainer.add(elems);
         this.updateBatteryUnlockDisplay(CONFIG.BATTERY_START_LEVEL);
     }
