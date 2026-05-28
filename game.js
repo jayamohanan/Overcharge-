@@ -95,45 +95,98 @@ class GameScene extends Phaser.Scene {
     // LAYOUT HELPERS
     // ================================================================
     calculateLayout() {
-        // Use window dimensions for orientation detection (not fixed canvas size)
         const W = window.innerWidth;
         const H = window.innerHeight;
-        this.isPortrait = H > W;  // Portrait if height > width
+        this.isPortrait = H > W;
 
-        const config = {
-            screenWidth: W,
-            screenHeight: H,
-            isPortrait: this.isPortrait,
-        };
+        const COLS    = this.GRID_COLS;
+        const ROWS    = this.GRID_ROWS;
+        const GAP     = this.CELL_GAP;
+        const PAN_PAD = CONFIG.CELL.GRID_PANEL_PADDING;
+        const P       = CONFIG.PLATFORM;
 
+        // ── Responsive cell size: fit grid in available width ─────────────────
+        const maxCellFromWidth = Math.floor((W - 2 * PAN_PAD - (COLS - 1) * GAP - 20) / COLS);
+        const cellSize = Math.min(this.CELL_SIZE, maxCellFromWidth);
+
+        const gridH = ROWS * cellSize + (ROWS - 1) * GAP;
+
+        // ── Portrait-specific tighter paddings ────────────────────────────────
+        const btnBottomPad = this.isPortrait ? 40  : CONFIG.BUTTON.BOTTOM_PADDING;
+        const btnGridGap   = this.isPortrait ? 20  : CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
+        const coinGridGap  = 25;  // gap between coin icon centre and panel top (both modes)
+
+        // ── partA top (portrait: data-driven bottom-up; landscape: screen top) ─
+        let partAY;
         if (this.isPortrait) {
-            // Portrait: Top half (platforms) + Bottom half (grid + buttons)
-            config.platformsTop = 0;
-            config.platformsHeight = H * 0.45;
-            
-            config.gridBottom = H;
-            config.gridHeight = H * 0.55;
-            config.gridTop = config.gridBottom - config.gridHeight;
-            
-            config.platformsCenterX = W / 2;
-            config.gridCenterX = W / 2;
+            // From bottom upward: button → grid → panel → coin display → partA top
+            const panelTopY  = H - btnBottomPad - CONFIG.BUTTON.SPAWN_HEIGHT / 2
+                               - btnGridGap - gridH - PAN_PAD;
+            const coinCenterY = panelTopY - coinGridGap;
+            partAY = coinCenterY - CONFIG.COIN_COUNTER.COIN_ICON_HEIGHT / 2 - 15;
         } else {
-            // Landscape: Left half (grid + buttons) + Right half (platforms)
-            config.gridLeft = 0;
-            config.gridWidth = W * 0.5;
-            config.gridCenterX = config.gridWidth / 2;
-            
-            config.platformsLeft = config.gridWidth;
-            config.platformsWidth = W * 0.5;
-            config.platformsCenterX = config.platformsLeft + config.platformsWidth / 2;
-            
-            config.platformsTop = 0;
-            config.platformsHeight = H;
-            config.gridTop = 0;
-            config.gridHeight = H;
+            partAY = 0;
         }
 
-        this.layoutConfig = config;
+        // ── partA and partB rects ─────────────────────────────────────────────
+        let partA, partB;
+        if (this.isPortrait) {
+            partA = { x: 0,     y: partAY, width: W,       height: H - partAY };
+            partB = { x: 0,     y: 0,      width: W,       height: partAY     };
+        } else {
+            partA = { x: 0,     y: 0,      width: W * 0.5, height: H };
+            partB = { x: W*0.5, y: 0,      width: W * 0.5, height: H };
+        }
+
+        // ── Platform scale: shrink elements so 3 platforms fit in partB ───────
+        // topExtent = distance from stripe centre to topmost element (charge-rate text)
+        // at full scale (s=1) with SLOT_SIZE=130, SLOT_ABOVE_STRIPE=14, etc.
+        const topExtent1 = P.STRIPE_HEIGHT / 2 + P.SLOT_ABOVE_STRIPE
+                         + P.SLOT_SIZE + P.CHARGE_RATE_GAP + 11;  // +11 = text half-height
+        const botExtent1 = P.STRIPE_HEIGHT / 2;
+        const singleH1   = topExtent1 + botExtent1;
+        // Required partB height for 3 non-overlapping platforms at scale s:
+        //   s*(topExtent + 2*singleH + botExtent) + 20 (margins)
+        const reqBase       = topExtent1 + 2 * singleH1 + botExtent1;
+        const platformScale = this.isPortrait
+            ? Math.min(1.0, (partB.height - 20) / reqBase)
+            : 1.0;
+
+        // ── Platform Y positions: evenly spaced within partB ─────────────────
+        const topExtentS = topExtent1 * platformScale;
+        const botExtentS = botExtent1 * platformScale;
+        const cy1 = partB.y + topExtentS + 10;
+        const cy3 = partB.y + partB.height - botExtentS - 10;
+        const cySpacing = (cy3 - cy1) / 2;
+        const platformYPositions = [cy1, cy1 + cySpacing, cy1 + cySpacing * 2];
+
+        // ── Platform stripe width: capped to partB width ─────────────────────
+        const platformStripeWidth = Math.min(P.STRIPE_WIDTH * platformScale, partB.width - 20);
+
+        this.layoutConfig = {
+            screenWidth:  W,
+            screenHeight: H,
+            isPortrait:   this.isPortrait,
+            cellSize,
+            partA, partB,
+            platformScale,
+            platformYPositions,
+            platformStripeWidth,
+            btnBottomPad,
+            btnGridGap,
+            coinGridGap,
+            // Legacy compat fields used by existing create* functions
+            gridLeft:         partA.x,
+            gridWidth:        partA.width,
+            gridCenterX:      partA.x + partA.width / 2,
+            gridTop:          partA.y,
+            gridHeight:       partA.height,
+            platformsLeft:    partB.x,
+            platformsWidth:   partB.width,
+            platformsCenterX: partB.x + partB.width / 2,
+            platformsTop:     partB.y,
+            platformsHeight:  partB.height,
+        };
     }
 
     // ================================================================
@@ -182,6 +235,7 @@ class GameScene extends Phaser.Scene {
 
         // Calculate layout based on orientation
         this.calculateLayout();
+        this.CELL_SIZE = this.layoutConfig.cellSize;  // responsive cell size flows into all grid code
 
         // Background
         const bgGfx = this.add.graphics();
@@ -248,42 +302,46 @@ class GameScene extends Phaser.Scene {
     // PLATFORM SYSTEM (TOP HALF)
     // ================================================================
     createPlatforms() {
-        const P = CONFIG.PLATFORM;
-        const L = this.layoutConfig;
-        
-        // Calculate responsive Y positions based on available platform height
-        const platformHeight = L.isPortrait ? L.platformsHeight : L.platformsHeight;
-        const baseY = L.isPortrait ? L.platformsTop + platformHeight * 0.15 : L.platformsTop + platformHeight * 0.15;
-        const spacingY = platformHeight / 3.5;  // Distribute 3 platforms across available height
-        
-        const responsiveYPositions = [
-            baseY,
-            baseY + spacingY,
-            baseY + spacingY * 2
-        ];
+        const P     = CONFIG.PLATFORM;
+        const L     = this.layoutConfig;
+        const scale = L.platformScale;
+        const s     = (v) => v * scale;
+
+        // All CONFIG.PLATFORM measurements scaled to fit partB
+        const ssz         = s(P.SLOT_SIZE);
+        const stripeH     = s(P.STRIPE_HEIGHT);
+        const stripeW     = L.platformStripeWidth;
+        const slotAbove   = s(P.SLOT_ABOVE_STRIPE);
+        const slotPadLeft = s(P.SLOT_PADDING_FROM_LEFT);
+        const chargeGap   = s(P.CHARGE_RATE_GAP);
+        const boltSize    = s(P.CHARGE_RATE_BOLT_SIZE);
+        const dbgPadSlot  = s(P.DEBUG_RECT_PADDING_FROM_SLOT);
+        const dbgPadStr   = s(P.DEBUG_RECT_PADDING_FROM_STRIPE);
+        const dbgW        = s(P.DEBUG_RECT_WIDTH);
+        const dbgH        = s(P.DEBUG_RECT_HEIGHT);
+        const socketGap   = s(P.SOCKET_GAP_FROM_SLOT);
+        const socketSize  = s(P.SOCKET_SIZE);
+        const plugSize    = s(P.PLUG_SIZE);
+        const capTextGap  = s(P.CAPACITY_TEXT_GAP);
+        const fontSize    = Math.max(12, Math.round(22 * scale)) + 'px';
+        const capFontSize = Math.max(12, Math.round(parseInt(P.CAPACITY_TEXT_SIZE) * scale)) + 'px';
+
+        const centerX        = L.platformsCenterX;
+        const stripeLeftEdge = centerX - stripeW / 2;
 
         for (let i = 0; i < 3; i++) {
-            const cy  = responsiveYPositions[i];  // Use responsive Y instead of P.Y_POSITIONS[i]
-            const ssz = P.SLOT_SIZE;
-            
-            // Center horizontally based on layout
-            const centerX = L.platformsCenterX;
-            
-            // Center the stripe at centerX
-            const stripeLeftEdge = centerX - P.STRIPE_WIDTH / 2;
-            
-            // Calculate slot position from centered stripe's left edge
-            const slotX = stripeLeftEdge + P.SLOT_PADDING_FROM_LEFT + ssz / 2;
-            const slotY = cy - P.STRIPE_HEIGHT / 2 - P.SLOT_ABOVE_STRIPE - ssz / 2;
-            
-            // Calculate debug rect position from slot right edge
-            const debugRectX = slotX + ssz / 2 + P.DEBUG_RECT_PADDING_FROM_SLOT + P.DEBUG_RECT_WIDTH / 2;
-            const debugRectY = cy - P.STRIPE_HEIGHT / 2 - P.DEBUG_RECT_PADDING_FROM_STRIPE - P.DEBUG_RECT_HEIGHT / 2;
+            const cy = L.platformYPositions[i];
 
-            // Stripe — plain background bar, nothing drawn on it
+            const slotX = stripeLeftEdge + slotPadLeft + ssz / 2;
+            const slotY = cy - stripeH / 2 - slotAbove - ssz / 2;
+
+            const debugRectX = slotX + ssz / 2 + dbgPadSlot + dbgW / 2;
+            const debugRectY = cy - stripeH / 2 - dbgPadStr - dbgH / 2;
+
+            // Stripe
             const stripe = this.add.graphics();
             stripe.fillStyle(hexColor(P.STRIPE_COLOR), P.STRIPE_ALPHA);
-            stripe.fillRoundedRect(stripeLeftEdge, cy - P.STRIPE_HEIGHT / 2, P.STRIPE_WIDTH, P.STRIPE_HEIGHT, 6);
+            stripe.fillRoundedRect(stripeLeftEdge, cy - stripeH / 2, stripeW, stripeH, 6);
             stripe.setDepth(2);
 
             // Slot backgrounds
@@ -296,38 +354,41 @@ class GameScene extends Phaser.Scene {
             slotBgFilled.setDepth(3);
             slotBgFilled.setVisible(false);
 
-            // Charge-rate label above slot (shown when a battery is present)
-            const rateTextY = slotY - ssz / 2 - P.CHARGE_RATE_GAP;
+            // Charge-rate label above slot
+            const rateTextY = slotY - ssz / 2 - chargeGap;
             const chargeRateText = this.add.text(slotX - 2, rateTextY, '', {
-                fontSize: '22px', fontFamily: CONFIG.FONT_FAMILY,
+                fontSize, fontFamily: CONFIG.FONT_FAMILY,
                 color: '#000000', fontStyle: 'bold',
                 stroke: '#FFFFFF', strokeThickness: 3,
             }).setOrigin(1, 0.5).setDepth(5).setVisible(false);
 
             const chargeRateBolt = this.add.image(slotX + 2, rateTextY, 'bolt')
-                .setDisplaySize(P.CHARGE_RATE_BOLT_SIZE, P.CHARGE_RATE_BOLT_SIZE)
+                .setDisplaySize(boltSize, boltSize)
                 .setOrigin(0, 0.5).setDepth(5).setVisible(false)
                 .setTint(0xFFFF00);
 
             this.platforms.push({
                 index: i,
                 centerY: cy,
-                centerX: centerX,  // Store centerX for responsive repositioning
+                centerX,
+                stripeLeftEdge, stripeWidth: stripeW, stripeHeight: stripeH,
                 stripe,
-                slotX: slotX, slotY: slotY, slotSize: ssz,
+                slotX, slotY, slotSize: ssz,
                 slotBg, slotBgFilled,
                 chargeRateText, chargeRateBolt,
                 batterySprite: null, batteryLevelText: null,
-                debugRectX: debugRectX, debugRectY: debugRectY,
+                debugRectX, debugRectY, debugRectWidth: dbgW, debugRectHeight: dbgH,
+                socketSize, plugSize, socketGap,
+                capTextGap, capFontSize,
                 gadgetSprite: null,
                 gadgetCapacity: 0, gadgetCurrentCharge: 0,
                 gadgetCapacityText: null, gadgetChargeText: null,
                 isDefeated: false,
-                smokePuffs: [],        // Track smoke particle objects
-                explosionEffects: [],  // Track explosion ring objects
-                coinAnimationComplete: true,  // Track if coin animation finished
-                chargingAnimationsActive: [],  // Track active charging animations
-                reachedZeroCapacity: false,  // Track if gadget reached 0 capacity (stop charging)
+                smokePuffs: [],
+                explosionEffects: [],
+                coinAnimationComplete: true,
+                chargingAnimationsActive: [],
+                reachedZeroCapacity: false,
             });
         }
     }
@@ -336,7 +397,7 @@ class GameScene extends Phaser.Scene {
         const shadow = hexColor(CONFIG.CELL.INSET_SHADOW_COLOR);
         const fill   = filled ? hexColor(CONFIG.CELL.FILLED_BG_COLOR) : hexColor(CONFIG.CELL.EMPTY_BG_COLOR);
         const inset  = CONFIG.CELL.INSET_BORDER_WIDTH;
-        const r      = CONFIG.PLATFORM.SLOT_RADIUS;
+        const r      = Math.round(CONFIG.PLATFORM.SLOT_RADIUS * size / CONFIG.PLATFORM.SLOT_SIZE);
         gfx.clear();
         gfx.fillStyle(shadow, 1);
         gfx.fillRoundedRect(x - size / 2, y - size / 2, size, size, r);
@@ -432,10 +493,10 @@ class GameScene extends Phaser.Scene {
         } else {
             fillColor = this._lerpColor(0xFF6B00, 0xFF1744, Math.min((progress - redT) / (1 - redT), 1));
         }
-        const fillW = P.STRIPE_WIDTH * progress;
+        const fillW = p.stripeWidth * progress;
         p.chargeFill.clear();
         p.chargeFill.fillStyle(fillColor, 0.55);
-        p.chargeFill.fillRoundedRect(P.STRIPE_X, p.centerY - P.STRIPE_HEIGHT / 2, fillW, P.STRIPE_HEIGHT, 6);
+        p.chargeFill.fillRoundedRect(p.stripeLeftEdge, p.centerY - p.stripeHeight / 2, fillW, p.stripeHeight, 6);
     }
 
     // ── Tension effects: shake / tint / pulse / camera shake ─────────────────
@@ -728,45 +789,45 @@ class GameScene extends Phaser.Scene {
             let debugRect = null;
             if (P.DEBUG_RECT_SHOW) {
                 debugRect = this.add.rectangle(
-                    p.debugRectX, p.debugRectY, 
-                    P.DEBUG_RECT_WIDTH, P.DEBUG_RECT_HEIGHT, 
+                    p.debugRectX, p.debugRectY,
+                    p.debugRectWidth, p.debugRectHeight,
                     P.DEBUG_RECT_COLOR, P.DEBUG_RECT_ALPHA
                 );
                 debugRect.setDepth(3.9);
             }
 
-            // Calculate actual gadget display size within debug rect bounds
+            // Calculate actual gadget display size within (scaled) debug rect bounds
             const normalKey = `gadget_${gadgetData.name}_normal`;
             let gadgetDisplayWidth, gadgetDisplayHeight;
-            
+
             if (this.textures.exists(normalKey)) {
                 const size = this._getAspectFitSize(
-                    this.textures.get(normalKey), 
-                    P.DEBUG_RECT_WIDTH, 
-                    P.DEBUG_RECT_HEIGHT
+                    this.textures.get(normalKey),
+                    p.debugRectWidth,
+                    p.debugRectHeight
                 );
                 gadgetDisplayWidth = size.width;
                 gadgetDisplayHeight = size.height;
             } else {
-                gadgetDisplayWidth = P.DEBUG_RECT_WIDTH;
-                gadgetDisplayHeight = P.DEBUG_RECT_HEIGHT;
+                gadgetDisplayWidth = p.debugRectWidth;
+                gadgetDisplayHeight = p.debugRectHeight;
             }
-            
+
             // Gadget position: horizontally centered in debug rect, vertically touching bottom
             const gadgetX = p.debugRectX;
-            const gadgetY = p.debugRectY + P.DEBUG_RECT_HEIGHT / 2 - gadgetDisplayHeight / 2;
+            const gadgetY = p.debugRectY + p.debugRectHeight / 2 - gadgetDisplayHeight / 2;
 
-            // Capacity text above gadget with controllable size and gap
+            // Capacity text above gadget
             const capText = this.add.text(
-                gadgetX, 
-                gadgetY - gadgetDisplayHeight / 2 - P.CAPACITY_TEXT_GAP, 
-                `${capacity}`, 
+                gadgetX,
+                gadgetY - gadgetDisplayHeight / 2 - p.capTextGap,
+                `${capacity}`,
                 {
-                    fontSize: P.CAPACITY_TEXT_SIZE, 
+                    fontSize: p.capFontSize,
                     fontFamily: CONFIG.FONT_FAMILY,
-                    color: '#000000', 
+                    color: '#000000',
                     fontStyle: 'bold',
-                    stroke: '#FFFFFF', 
+                    stroke: '#FFFFFF',
                     strokeThickness: 3,
                 }
             ).setOrigin(0.5, 1).setDepth(5);
@@ -799,37 +860,37 @@ class GameScene extends Phaser.Scene {
             p._debugRect          = debugRect;
 
             // ── Wire connection ────────────────────────────────────────────────
-            const socketX = p.slotX + P.SLOT_SIZE / 2 + P.SOCKET_GAP_FROM_SLOT;
+            const socketX = p.slotX + p.slotSize / 2 + p.socketGap;
             const socketY = p.slotY;
-            
+
             // connection_height: fraction from bottom (0=bottom, 1=top), default 0.5 = centre
             // connection_left_padding: horizontal inset into gadget as fraction of width, default 0.1
-            const connH      = gadgetData.connection_height      ?? 0.5;
-            const connLPad   = gadgetData.connection_left_padding ?? 0.1;
-            const plugEndX   = gadgetX - gadgetDisplayWidth / 2 + connLPad * gadgetDisplayWidth;
-            const plugEndY   = gadgetY + gadgetDisplayHeight / 2 - connH * gadgetDisplayHeight;
+            const connH    = gadgetData.connection_height      ?? 0.5;
+            const connLPad = gadgetData.connection_left_padding ?? 0.1;
+            const plugEndX = gadgetX - gadgetDisplayWidth / 2 + connLPad * gadgetDisplayWidth;
+            const plugEndY = gadgetY + gadgetDisplayHeight / 2 - connH * gadgetDisplayHeight;
 
             // socket behind wire; plug on top of wire; gadget (depth 4) on top of all
             const socketSprite = this.textures.exists('gadget_socket')
-                ? this.add.image(socketX, socketY, 'gadget_socket').setDisplaySize(P.SOCKET_SIZE, P.SOCKET_SIZE)
-                : this.add.circle(socketX, socketY, P.SOCKET_SIZE / 2, 0x556677);
+                ? this.add.image(socketX, socketY, 'gadget_socket').setDisplaySize(p.socketSize, p.socketSize)
+                : this.add.circle(socketX, socketY, p.socketSize / 2, 0x556677);
             socketSprite.setDepth(3.4);
 
             const wireGfx = this.add.graphics().setDepth(3.55);
-            // Wire: from bottom-centre of plug icon to gadget connection point
-            // Extend wire upward by 6px to close gap with plug visual
-            this._drawWire(wireGfx, socketX, socketY + P.PLUG_SIZE / 2 - 6, plugEndX, plugEndY);
+            // Wire starts from bottom-centre of plug icon (plug sits at socketY, extends downward)
+            const wireStartY = socketY + p.plugSize / 2 - 6;
+            this._drawWire(wireGfx, socketX, wireStartY, plugEndX, plugEndY);
 
             const plugSprite = this.textures.exists('gadget_plug_in')
-                ? this.add.image(socketX, socketY, 'gadget_plug_in').setDisplaySize(P.PLUG_SIZE, P.PLUG_SIZE)
-                : this.add.circle(socketX, socketY, P.PLUG_SIZE / 2, 0x778899);
+                ? this.add.image(socketX, socketY, 'gadget_plug_in').setDisplaySize(p.plugSize, p.plugSize)
+                : this.add.circle(socketX, socketY, p.plugSize / 2, 0x778899);
             plugSprite.setDepth(3.7);
 
             p.socketSprite = socketSprite;
             p.plugSprite   = plugSprite;
             p.wireGraphics = wireGfx;
             p._wireStartX  = socketX;
-            p._wireStartY  = socketY;
+            p._wireStartY  = wireStartY;
             p._wireEndX    = plugEndX;
             p._wireEndY    = plugEndY;
 
@@ -2132,8 +2193,8 @@ class GameScene extends Phaser.Scene {
         
         if (L.isPortrait) {
             // Portrait: center horizontally, position below platforms
-            const buttonY    = L.gridTop + L.gridHeight - CONFIG.BUTTON.BOTTOM_PADDING;
-            const gridBotY   = buttonY - CONFIG.BUTTON.SPAWN_HEIGHT / 2 - CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
+            const buttonY    = L.screenHeight - L.btnBottomPad;
+            const gridBotY   = buttonY - CONFIG.BUTTON.SPAWN_HEIGHT / 2 - L.btnGridGap;
             gridStartY  = gridBotY - gridH + this.CELL_SIZE / 2;
             gridStartX  = (W - gridW) / 2 + this.CELL_SIZE / 2;
             gridCenterX = W / 2;
@@ -2204,7 +2265,7 @@ class GameScene extends Phaser.Scene {
             // Portrait: above grid panel
             const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
             const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
-            coinY = panCY - panH / 2 - 40;
+            coinY = panCY - panH / 2 - L.coinGridGap;
             rightEdge = panCX + panW / 2;
         } else {
             // Landscape: position above grid in left half
@@ -2212,8 +2273,8 @@ class GameScene extends Phaser.Scene {
             const availHeight = L.gridHeight;
             const gridTopMargin = (availHeight - gridH) / 2;
             const panCY = L.gridTop + gridTopMargin + gridH / 2;
-            
-            coinY = panCY - panH / 2 - 40;
+
+            coinY = panCY - panH / 2 - L.coinGridGap;
             rightEdge = L.gridLeft + L.gridWidth - 20;
         }
 
@@ -2524,7 +2585,7 @@ class GameScene extends Phaser.Scene {
         
         if (L.isPortrait) {
             spawnButtonX = W / 2;
-            spawnButtonY = H - CONFIG.BUTTON.BOTTOM_PADDING;
+            spawnButtonY = H - L.btnBottomPad;
             levelUpButtonX = W / 2 - CONFIG.BUTTON.BUTTON_SPACING;
             levelUpButtonY = spawnButtonY;
         } else {
