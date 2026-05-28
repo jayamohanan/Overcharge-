@@ -105,63 +105,52 @@ class GameScene extends Phaser.Scene {
         const PAN_PAD = CONFIG.CELL.GRID_PANEL_PADDING;
         const P       = CONFIG.PLATFORM;
 
-        // ── Responsive cell size: fit grid in available width ─────────────────
-        const maxCellFromWidth = Math.floor((W - 2 * PAN_PAD - (COLS - 1) * GAP - 20) / COLS);
-        const cellSize = Math.min(this.CELL_SIZE, maxCellFromWidth);
-
-        const gridH = ROWS * cellSize + (ROWS - 1) * GAP;
-
-        // ── Portrait-specific tighter paddings ────────────────────────────────
-        const btnBottomPad = this.isPortrait ? 40  : CONFIG.BUTTON.BOTTOM_PADDING;
-        const btnGridGap   = this.isPortrait ? 20  : CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
-        const coinGridGap  = 25;  // gap between coin icon centre and panel top (both modes)
-
-        // ── partA top (portrait: data-driven bottom-up; landscape: screen top) ─
-        let partAY;
-        if (this.isPortrait) {
-            // From bottom upward: button → grid → panel → coin display → partA top
-            const panelTopY  = H - btnBottomPad - CONFIG.BUTTON.SPAWN_HEIGHT / 2
-                               - btnGridGap - gridH - PAN_PAD;
-            const coinCenterY = panelTopY - coinGridGap;
-            partAY = coinCenterY - CONFIG.COIN_COUNTER.COIN_ICON_HEIGHT / 2 - 15;
-        } else {
-            partAY = 0;
-        }
-
-        // ── partA and partB rects ─────────────────────────────────────────────
+        // ── partA / partB: strict 50/50 portrait, left/right halves landscape ──
         let partA, partB;
         if (this.isPortrait) {
-            partA = { x: 0,     y: partAY, width: W,       height: H - partAY };
-            partB = { x: 0,     y: 0,      width: W,       height: partAY     };
+            partA = { x: 0,     y: H * 0.5, width: W,       height: H * 0.5 };
+            partB = { x: 0,     y: 0,       width: W,       height: H * 0.5 };
         } else {
-            partA = { x: 0,     y: 0,      width: W * 0.5, height: H };
-            partB = { x: W*0.5, y: 0,      width: W * 0.5, height: H };
+            partA = { x: 0,     y: 0,       width: W * 0.5, height: H };
+            partB = { x: W*0.5, y: 0,       width: W * 0.5, height: H };
         }
 
-        // ── Platform scale: shrink elements so 3 platforms fit in partB ───────
-        // topExtent = distance from stripe centre to topmost element (charge-rate text)
-        // at full scale (s=1) with SLOT_SIZE=130, SLOT_ABOVE_STRIPE=14, etc.
-        const topExtent1 = P.STRIPE_HEIGHT / 2 + P.SLOT_ABOVE_STRIPE
-                         + P.SLOT_SIZE + P.CHARGE_RATE_GAP + 11;  // +11 = text half-height
-        const botExtent1 = P.STRIPE_HEIGHT / 2;
-        const singleH1   = topExtent1 + botExtent1;
-        // Required partB height for 3 non-overlapping platforms at scale s:
-        //   s*(topExtent + 2*singleH + botExtent) + 20 (margins)
-        const reqBase       = topExtent1 + 2 * singleH1 + botExtent1;
-        const platformScale = this.isPortrait
-            ? Math.min(1.0, (partB.height - 20) / reqBase)
-            : 1.0;
+        // ── Portrait-specific tighter paddings ─────────────────────────────────
+        const btnBottomPad = this.isPortrait ? 30  : CONFIG.BUTTON.BOTTOM_PADDING;
+        const btnGridGap   = this.isPortrait ? 15  : CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP;
+        const coinGridGap  = this.isPortrait ? 15  : 25;
 
-        // ── Platform Y positions: evenly spaced within partB ─────────────────
-        const topExtentS = topExtent1 * platformScale;
-        const botExtentS = botExtent1 * platformScale;
-        const cy1 = partB.y + topExtentS + 10;
-        const cy3 = partB.y + partB.height - botExtentS - 10;
-        const cySpacing = (cy3 - cy1) / 2;
-        const platformYPositions = [cy1, cy1 + cySpacing, cy1 + cySpacing * 2];
+        // ── Responsive cell size: fit grid in BOTH partA width AND height ───────
+        const maxCellW = Math.floor((partA.width - 2 * PAN_PAD - (COLS - 1) * GAP - 20) / COLS);
+        let maxCellH = this.CELL_SIZE;
+        if (this.isPortrait) {
+            // Total non-grid vertical space within partA (H/2):
+            //   btnBottomPad + SPAWN_HEIGHT/2 + btnGridGap + PAN_PAD + coinGridGap + coinHalf + topMargin
+            const nonGridH = btnBottomPad + CONFIG.BUTTON.SPAWN_HEIGHT / 2 + btnGridGap
+                           + PAN_PAD + coinGridGap + 20 + 10;
+            maxCellH = Math.floor((partA.height - nonGridH - (ROWS - 1) * GAP) / ROWS);
+        }
+        const cellSize = Math.min(this.CELL_SIZE, maxCellW, maxCellH);
+
+        // ── Platform scale: slot size matches cell size ────────────────────────
+        const platformScale = Math.min(1.0, cellSize / P.SLOT_SIZE);
 
         // ── Platform stripe width: capped to partB width ─────────────────────
         const platformStripeWidth = Math.min(P.STRIPE_WIDTH * platformScale, partB.width - 20);
+
+        // ── Platform Y positions: evenly spaced with comfortable outer padding ─
+        // topExtent = distance from stripe centre to topmost element at scale 1
+        const topExtent1 = P.STRIPE_HEIGHT / 2 + P.SLOT_ABOVE_STRIPE
+                         + P.SLOT_SIZE + P.CHARGE_RATE_GAP + 11;
+        const botExtent1 = P.STRIPE_HEIGHT / 2;
+        const topExtentS = topExtent1 * platformScale;
+        const botExtentS = botExtent1 * platformScale;
+        // Fixed outer padding keeps platforms away from partB edges (not spread-to-max)
+        const outerPad   = this.isPortrait ? 25 : 60;
+        const cy1 = partB.y + topExtentS + outerPad;
+        const cy3 = partB.y + partB.height - botExtentS - outerPad;
+        const cySpacing = (cy3 - cy1) / 2;
+        const platformYPositions = [cy1, cy1 + cySpacing, cy1 + cySpacing * 2];
 
         this.layoutConfig = {
             screenWidth:  W,
@@ -2262,30 +2251,28 @@ class GameScene extends Phaser.Scene {
         let coinY, rightEdge;
         
         if (L.isPortrait) {
-            // Portrait: above grid panel
+            // Portrait: above grid panel, right-aligned to panel right edge
             const panCX  = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
             const panCY  = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
             coinY = panCY - panH / 2 - L.coinGridGap;
             rightEdge = panCX + panW / 2;
         } else {
-            // Landscape: position above grid in left half
+            // Landscape: above grid, right-aligned to grid panel right edge
             const panCX = L.gridLeft + L.gridWidth / 2;
             const availHeight = L.gridHeight;
             const gridTopMargin = (availHeight - gridH) / 2;
             const panCY = L.gridTop + gridTopMargin + gridH / 2;
-
             coinY = panCY - panH / 2 - L.coinGridGap;
-            rightEdge = L.gridLeft + L.gridWidth - 20;
+            rightEdge = panCX + panW / 2;  // actual panel right edge (was L.gridWidth-20)
         }
 
-        const iconX = rightEdge - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2
-                      - CONFIG.COIN_COUNTER.PADDING_FROM_SCREEN_RIGHT;
+        // Icon right edge aligns with grid panel right edge; 5px gap to text
+        const iconX = rightEdge - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2;
         this.coinIcon = this.add.image(iconX, coinY, 'coin')
             .setDisplaySize(CONFIG.COIN_COUNTER.COIN_ICON_WIDTH, CONFIG.COIN_COUNTER.COIN_ICON_HEIGHT)
             .setDepth(10);
 
-        const textX = iconX - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2
-                      - CONFIG.COIN_COUNTER.TEXT_ICON_SPACING;
+        const textX = iconX - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2 - 5;
         this.coinText = this.add.text(textX, coinY, `${this.coins}`, {
             fontSize: CONFIG.COIN_COUNTER.TEXT_SIZE,
             fontFamily: CONFIG.FONT_FAMILY,
