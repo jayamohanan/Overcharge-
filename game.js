@@ -178,13 +178,49 @@ class GameScene extends Phaser.Scene {
         const cySpacing  = (cy3 - cy1) / 2;
         const platformYPositions = [cy1, cy1 + cySpacing, cy1 + cySpacing * 2];
 
+        // ── All content sizes that must scale with cellSize ───────────────────
+        // Cell gap
+        const cellGap           = Math.max(2, Math.round(CONFIG.CELL.GAP * scale));
+
+        // Battery icon + level text inside grid cells (and platform slots)
+        const batteryDisplaySize = Math.round(CONFIG.CELL.BATTERY_DISPLAY_SIZE * scale);
+        const batteryYOffset     = Math.round(CONFIG.CELL.BATTERY_Y_OFFSET     * scale);
+        const levelTextYOffset   = Math.round(CONFIG.CELL.LEVEL_TEXT_Y_OFFSET  * scale);
+        const levelTextSize      = Math.max(8, Math.round(11 * scale)) + 'px';
+
+        // Spawn button interior (coin value text, coin icon, battery icon)
+        const spawnCoinTextSize  = Math.max(14, Math.round(32 * scale)) + 'px';
+        const spawnCoinTextX     = Math.round(CONFIG.BUTTON.COIN_TEXT_X          * scale);
+        const spawnCoinIconX     = Math.round(CONFIG.BUTTON.COIN_ICON_X           * scale);
+        const spawnCoinIconSize  = Math.round(CONFIG.BUTTON.COIN_ICON_WIDTH       * scale);
+        const spawnBattIconX     = Math.round(CONFIG.BUTTON.BATTERY_ICON_X        * scale);
+        const spawnBattIconSize  = Math.round(CONFIG.BUTTON.BATTERY_ICON_WIDTH    * scale);
+
+        // Coin counter display (above grid panel)
+        const coinIconSize       = Math.round(CONFIG.COIN_COUNTER.COIN_ICON_WIDTH * scale);
+        const coinTextSize       = Math.max(20, Math.round(48 * scale)) + 'px';
+        const coinTextIconGap    = Math.max(3,  Math.round(5 * scale));
+
+        // Crown / battery-name unlock display
+        const crownIconSize      = Math.round(CONFIG.BATTERY_UNLOCK_DISPLAY.CROWN_ICON_SIZE * scale);
+        const unlockTextSize     = Math.max(12, Math.round(24 * scale)) + 'px';
+
         this.layoutConfig = {
             screenWidth: W, screenHeight: H, isPortrait: isP,
-            cellSize,
+            cellSize, cellGap,
             panPad, spawnBtnDisplayH, spawnBtnDisplayW, spawnBtnLogicalHalf: spawnBtnLogHalf,
             partA, partB,
             platformScale, platformYPositions, platformStripeWidth,
             btnBottomPad, btnGridGap, coinGridGap,
+            // Battery / cell content
+            batteryDisplaySize, batteryYOffset, levelTextYOffset, levelTextSize,
+            // Spawn button contents
+            spawnCoinTextSize, spawnCoinTextX, spawnCoinIconX, spawnCoinIconSize,
+            spawnBattIconX, spawnBattIconSize,
+            // Coin counter
+            coinIconSize, coinTextSize, coinTextIconGap,
+            // Crown display
+            crownIconSize, unlockTextSize,
             // Legacy compat fields
             gridLeft:         partA.x,
             gridWidth:        partA.width,
@@ -245,7 +281,13 @@ class GameScene extends Phaser.Scene {
 
         // Calculate layout based on orientation
         this.calculateLayout();
-        this.CELL_SIZE = this.layoutConfig.cellSize;  // responsive cell size flows into all grid code
+        const L = this.layoutConfig;
+        this.CELL_SIZE          = L.cellSize;
+        this.CELL_GAP           = L.cellGap;
+        this.batteryDisplaySize = L.batteryDisplaySize;
+        this.batteryYOffset     = L.batteryYOffset;
+        this.levelTextYOffset   = L.levelTextYOffset;
+        this.levelTextSize      = L.levelTextSize;
 
         // Background
         const bgGfx = this.add.graphics();
@@ -1115,8 +1157,8 @@ class GameScene extends Phaser.Scene {
         const p   = this.platforms[slotIndex];
         const chargePerMinute  = getBatteryChargeValue(level);
         const batteryIconLevel = getBatteryIconLevel(level);
-        const yOff  = CONFIG.CELL.BATTERY_Y_OFFSET;
-        const tOff  = CONFIG.CELL.LEVEL_TEXT_Y_OFFSET;
+        const yOff  = this.batteryYOffset;
+        const tOff  = this.levelTextYOffset;
 
         // Transparent draggable overlay that covers the whole slot cell —
         // gives a reliable pick-up region independent of sprite texture.
@@ -1126,11 +1168,11 @@ class GameScene extends Phaser.Scene {
             .setInteractive({ draggable: true, useHandCursor: true });
 
         const batterySprite = this.add.image(p.slotX, p.slotY + yOff, `battery${batteryIconLevel}`);
-        batterySprite.setDisplaySize(CONFIG.CELL.BATTERY_DISPLAY_SIZE, CONFIG.CELL.BATTERY_DISPLAY_SIZE);
+        batterySprite.setDisplaySize(this.batteryDisplaySize, this.batteryDisplaySize);
         batterySprite.setDepth(11);
 
         const levelText = this.add.text(p.slotX, p.slotY + yOff + tOff, `LVL ${level}`, {
-            fontSize: CONFIG.CELL.LEVEL_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
+            fontSize: this.levelTextSize, fontFamily: CONFIG.FONT_FAMILY,
             color: CONFIG.CELL.LEVEL_TEXT_COLOR, fontStyle: 'bold',
         }).setOrigin(0.5).setDepth(12);
 
@@ -2266,15 +2308,15 @@ class GameScene extends Phaser.Scene {
         const coinY     = panCY - panH / 2 - L.coinGridGap;
         const rightEdge = panCX + panW / 2;
 
-        // Icon right edge aligns with grid panel right edge; 5px gap to text
-        const iconX = rightEdge - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2;
+        // Icon right edge aligns with grid panel right edge; scaled gap to text
+        const iconX = rightEdge - L.coinIconSize / 2;
         this.coinIcon = this.add.image(iconX, coinY, 'coin')
-            .setDisplaySize(CONFIG.COIN_COUNTER.COIN_ICON_WIDTH, CONFIG.COIN_COUNTER.COIN_ICON_HEIGHT)
+            .setDisplaySize(L.coinIconSize, L.coinIconSize)
             .setDepth(10);
 
-        const textX = iconX - CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2 - 5;
+        const textX = iconX - L.coinIconSize / 2 - L.coinTextIconGap;
         this.coinText = this.add.text(textX, coinY, `${this.coins}`, {
-            fontSize: CONFIG.COIN_COUNTER.TEXT_SIZE,
+            fontSize: L.coinTextSize,
             fontFamily: CONFIG.FONT_FAMILY,
             color: CONFIG.COIN_COUNTER.TEXT_COLOR,
             fontStyle: 'bold',
@@ -2370,30 +2412,34 @@ class GameScene extends Phaser.Scene {
         // Container anchored to grid panel left edge
         this.unlockDisplayContainer = this.add.container(leftEdge, displayY).setDepth(10);
         
-        const U = CONFIG.BATTERY_UNLOCK_DISPLAY;
+        const U  = CONFIG.BATTERY_UNLOCK_DISPLAY;
+        const Lc = this.layoutConfig;
         const elems = [];
-        let curX = U.PADDING_FROM_LEFT;  // padding from container left (which is grid left edge)
+        const scaledCrownSize = Lc.crownIconSize;
+        const scaledCrownSpacing = Math.max(4, Math.round(U.CROWN_BATTERY_SPACING * (Lc.cellSize / CONFIG.CELL.SIZE)));
+        let curX = Math.max(4, Math.round(U.PADDING_FROM_LEFT * (Lc.cellSize / CONFIG.CELL.SIZE)));
 
         if (U.SHOW_CROWN_ICON) {
-            const crown = this.add.image(curX + U.CROWN_ICON_SIZE / 2, 0, 'battery_crown')
-                .setDisplaySize(U.CROWN_ICON_SIZE, U.CROWN_ICON_SIZE);
+            const crown = this.add.image(curX + scaledCrownSize / 2, 0, 'battery_crown')
+                .setDisplaySize(scaledCrownSize, scaledCrownSize);
             elems.push(crown);
-            curX += U.CROWN_ICON_SIZE + U.CROWN_BATTERY_SPACING;  // next element starts from right edge of crown
+            curX += scaledCrownSize + scaledCrownSpacing;
         }
         if (U.SHOW_BATTERY_ICON) {
+            const scaledBattSize = Math.round(U.BATTERY_ICON_SIZE * (Lc.cellSize / CONFIG.CELL.SIZE));
             this.unlockDisplayBatteryIcon = this.add.image(
-                curX + U.BATTERY_ICON_SIZE / 2, 0,
+                curX + scaledBattSize / 2, 0,
                 `battery${getBatteryIconLevel(CONFIG.BATTERY_START_LEVEL)}`)
-                .setDisplaySize(U.BATTERY_ICON_SIZE, U.BATTERY_ICON_SIZE);
+                .setDisplaySize(scaledBattSize, scaledBattSize);
             elems.push(this.unlockDisplayBatteryIcon);
-            curX += U.BATTERY_ICON_SIZE + U.BATTERY_TEXT_SPACING;  // next element starts from right edge of battery icon
+            curX += scaledBattSize + Math.max(3, Math.round(U.BATTERY_TEXT_SPACING * (Lc.cellSize / CONFIG.CELL.SIZE)));
         } else {
             this.unlockDisplayBatteryIcon = null;
         }
 
         // Text starts from right edge of last icon
         this.unlockDisplayText = this.add.text(curX, 0, '', {
-            fontFamily: CONFIG.FONT_FAMILY, fontSize: U.TEXT_SIZE,
+            fontFamily: CONFIG.FONT_FAMILY, fontSize: Lc.unlockTextSize,
             color: U.TEXT_COLOR, stroke: U.TEXT_STROKE_COLOR,
             strokeThickness: U.TEXT_STROKE_THICKNESS,
         }).setOrigin(0, 0.5);
@@ -2433,21 +2479,21 @@ class GameScene extends Phaser.Scene {
             .setDepth(10)
             .setInteractive({ draggable: true, useHandCursor: true });
 
-        const battery = this.add.image(cell.x, cell.y + CONFIG.CELL.BATTERY_Y_OFFSET, `battery${iconLvl}`)
-            .setDisplaySize(CONFIG.CELL.BATTERY_DISPLAY_SIZE, CONFIG.CELL.BATTERY_DISPLAY_SIZE)
+        const battery = this.add.image(cell.x, cell.y + this.batteryYOffset, `battery${iconLvl}`)
+            .setDisplaySize(this.batteryDisplaySize, this.batteryDisplaySize)
             .setDepth(11);
 
         const levelText = this.add.text(
-            cell.x, cell.y + CONFIG.CELL.BATTERY_Y_OFFSET + CONFIG.CELL.LEVEL_TEXT_Y_OFFSET,
+            cell.x, cell.y + this.batteryYOffset + this.levelTextYOffset,
             `LVL ${level}`,
-            { fontSize: CONFIG.CELL.LEVEL_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
+            { fontSize: this.levelTextSize, fontFamily: CONFIG.FONT_FAMILY,
               color: CONFIG.CELL.LEVEL_TEXT_COLOR, fontStyle: 'bold' })
             .setOrigin(0.5).setDepth(12);
 
         const batteryData = {
             draggableBg, sprite: battery, levelText, level, row, col,
             originalX: cell.x,
-            originalY: cell.y + CONFIG.CELL.BATTERY_Y_OFFSET,
+            originalY: cell.y + this.batteryYOffset,
             inGrid: true, inChargingSlot: false,
         };
         draggableBg.setData('batteryData', batteryData);
@@ -2461,7 +2507,7 @@ class GameScene extends Phaser.Scene {
     }
 
     playSpawnAnimation(bd) {
-        const base = CONFIG.CELL.BATTERY_DISPLAY_SIZE;
+        const base = this.batteryDisplaySize;
         const a    = CONFIG.SPAWN_ANIMATION;
         bd.sprite.setDisplaySize(base * a.INITIAL_SCALE_X, base * a.INITIAL_SCALE_Y);
         bd.levelText.setScale(a.INITIAL_SCALE_X, a.INITIAL_SCALE_Y);
@@ -2582,12 +2628,12 @@ class GameScene extends Phaser.Scene {
             .setDisplaySize(L.spawnBtnDisplayW, L.spawnBtnDisplayH)
             .setInteractive({ useHandCursor: true });
         this.spawnButtonText = this.add.text(
-            CONFIG.BUTTON.COIN_TEXT_X, CONFIG.BUTTON.COIN_TEXT_Y, `${this.spawnCost}`, {
-                fontSize: CONFIG.BUTTON.COIN_TEXT_SIZE, fontFamily: CONFIG.FONT_FAMILY,
+            L.spawnCoinTextX, 0, `${this.spawnCost}`, {
+                fontSize: L.spawnCoinTextSize, fontFamily: CONFIG.FONT_FAMILY,
                 color: '#FFFFFF', fontStyle: 'bold',
             }).setOrigin(0.5);
-        const spawnCoinIcon = this.add.image(CONFIG.BUTTON.COIN_ICON_X, CONFIG.BUTTON.COIN_ICON_Y, 'coin')
-            .setDisplaySize(CONFIG.BUTTON.COIN_ICON_WIDTH, CONFIG.BUTTON.COIN_ICON_HEIGHT);
+        const spawnCoinIcon = this.add.image(L.spawnCoinIconX, 0, 'coin')
+            .setDisplaySize(L.spawnCoinIconSize, L.spawnCoinIconSize);
 
         spawnBtn.add([spawnBg, this.spawnButtonText, spawnCoinIcon]);
         spawnBg.on('pointerdown', () => this.spawnBattery());
@@ -2598,9 +2644,8 @@ class GameScene extends Phaser.Scene {
         // Wait for battery texture then add icon
         const iconLvl = getBatteryIconLevel(this.spawnButtonLevel);
         await this.assets.ensureBattery(iconLvl);
-        const spawnIcon = this.add.image(CONFIG.BUTTON.BATTERY_ICON_X, CONFIG.BUTTON.BATTERY_ICON_Y,
-            `battery${iconLvl}`)
-            .setDisplaySize(CONFIG.BUTTON.BATTERY_ICON_WIDTH, CONFIG.BUTTON.BATTERY_ICON_HEIGHT);
+        const spawnIcon = this.add.image(L.spawnBattIconX, 0, `battery${iconLvl}`)
+            .setDisplaySize(L.spawnBattIconSize, L.spawnBattIconSize);
         spawnBtn.add(spawnIcon);
         this.spawnButtonIcon = spawnIcon;
 
@@ -2612,8 +2657,9 @@ class GameScene extends Phaser.Scene {
             .setStrokeStyle(CONFIG.BUTTON.LEVELUP_BORDER_WIDTH,
                 hexColor(CONFIG.BUTTON.LEVELUP_BORDER_COLOR))
             .setInteractive({ useHandCursor: true });
+        const lvlUpFontSize = Math.max(12, Math.round(20 * (L.cellSize / CONFIG.CELL.SIZE))) + 'px';
         const lvlTxt = this.add.text(0, 0, 'LVL UP\nALL', {
-            fontSize: '20px', fontFamily: CONFIG.FONT_FAMILY,
+            fontSize: lvlUpFontSize, fontFamily: CONFIG.FONT_FAMILY,
             align: 'center', color: '#FFFFFF', fontStyle: 'bold',
         }).setOrigin(0.5);
         lvlBtn.add([lvlBg, lvlTxt]);
@@ -2821,7 +2867,7 @@ class GameScene extends Phaser.Scene {
         if (!bd) return;
         if (bd.draggableBg) { bd.draggableBg.x = dragX; bd.draggableBg.y = dragY; }
         bd.sprite.setPosition(dragX, dragY);
-        bd.levelText.setPosition(dragX, dragY + CONFIG.CELL.LEVEL_TEXT_Y_OFFSET);
+        bd.levelText.setPosition(dragX, dragY + this.levelTextYOffset);
         if (bd.inGrid) {
             const cd = this.gridCells[bd.row][bd.col];
             const b  = new Phaser.Geom.Rectangle(
@@ -2910,7 +2956,7 @@ class GameScene extends Phaser.Scene {
         if (!this.batteries.includes(bd)) this.batteries.push(bd);
         const cd = this.gridCells[newRow][newCol];
         bd.originalX = cd.x;
-        bd.originalY = cd.y + CONFIG.CELL.BATTERY_Y_OFFSET;
+        bd.originalY = cd.y + this.batteryYOffset;
         this.returnBatteryToPosition(bd);
         cd.filledBg.setVisible(true);
         cd.isEmpty = false;
@@ -2934,10 +2980,10 @@ class GameScene extends Phaser.Scene {
         this.grid[r1][c1] = b2; this.grid[r2][c2] = b1;
         b1.row = r2; b1.col = c2;
         b1.originalX = this.gridCells[r2][c2].x;
-        b1.originalY = this.gridCells[r2][c2].y + CONFIG.CELL.BATTERY_Y_OFFSET;
+        b1.originalY = this.gridCells[r2][c2].y + this.batteryYOffset;
         b2.row = r1; b2.col = c1;
         b2.originalX = this.gridCells[r1][c1].x;
-        b2.originalY = this.gridCells[r1][c1].y + CONFIG.CELL.BATTERY_Y_OFFSET;
+        b2.originalY = this.gridCells[r1][c1].y + this.batteryYOffset;
         this.returnBatteryToPosition(b1);
         this.returnBatteryToPosition(b2);
     }
@@ -3064,12 +3110,12 @@ class GameScene extends Phaser.Scene {
             cd.isEmpty = false;
         }
 
-        const tY = bd.originalY + CONFIG.CELL.LEVEL_TEXT_Y_OFFSET;
+        const tY = bd.originalY + this.levelTextYOffset;
         if (bd.draggableBg) {
             this.tweens.add({
                 targets: bd.draggableBg,
                 x: bd.originalX,
-                y: bd.originalY - CONFIG.CELL.BATTERY_Y_OFFSET,
+                y: bd.originalY - this.batteryYOffset,
                 duration: 200, ease: 'Back.easeOut',
             });
         }
@@ -3199,9 +3245,10 @@ class GameScene extends Phaser.Scene {
     // ================================================================
     updateCoinDisplay() {
         this.coinText.setText(`${this.coins}`);
+        const L = this.layoutConfig;
         const iconX = this.coinText.x + this.coinText.width / 2
-            + CONFIG.COIN_COUNTER.TEXT_ICON_SPACING
-            + CONFIG.COIN_COUNTER.COIN_ICON_WIDTH / 2;
+            + L.coinTextIconGap
+            + L.coinIconSize / 2;
         this.coinIcon.setX(iconX);
         this.updateSpawnButton();
     }
