@@ -95,8 +95,8 @@ class GameScene extends Phaser.Scene {
     // LAYOUT HELPERS
     // ================================================================
     calculateLayout() {
-        const W = window.innerWidth;
-        const H = window.innerHeight;
+        const W = this.scale.width;
+        const H = this.scale.height;
         this.isPortrait = H > W;
 
         const COLS = this.GRID_COLS, ROWS = this.GRID_ROWS, GAP = this.CELL_GAP;
@@ -221,8 +221,8 @@ class GameScene extends Phaser.Scene {
     // ================================================================
     create() {
         this.assets = new AssetManager(this);
-        const W = window.innerWidth || this.cameras.main.width;
-        const H = window.innerHeight || this.cameras.main.height;
+        const W = this.scale.width;
+        const H = this.scale.height;
 
         // Calculate layout based on orientation
         this.calculateLayout();
@@ -2173,8 +2173,8 @@ class GameScene extends Phaser.Scene {
     // BATTERY MERGE GRID (BOTTOM HALF)
     // ================================================================
     createGrid() {
-        const W = window.innerWidth || this.cameras.main.width;
-        const H = window.innerHeight || this.cameras.main.height;
+        const W = this.scale.width;
+        const H = this.scale.height;
         const L = this.layoutConfig;
         
         const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
@@ -2240,8 +2240,8 @@ class GameScene extends Phaser.Scene {
     }
 
     createCoinDisplay() {
-        const W = window.innerWidth || this.cameras.main.width;
-        const H = window.innerHeight || this.cameras.main.height;
+        const W = this.scale.width;
+        const H = this.scale.height;
         const L = this.layoutConfig;
         
         const gridW  = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
@@ -2566,8 +2566,8 @@ class GameScene extends Phaser.Scene {
 
 
     async createButtons() {
-        const W = window.innerWidth || this.cameras.main.width;
-        const H = window.innerHeight || this.cameras.main.height;
+        const W = this.scale.width;
+        const H = this.scale.height;
         const L = this.layoutConfig;
         
         let spawnButtonX, spawnButtonY, levelUpButtonX, levelUpButtonY;
@@ -2575,7 +2575,8 @@ class GameScene extends Phaser.Scene {
         if (L.isPortrait) {
             spawnButtonX = W / 2;
             spawnButtonY = H - L.btnBottomPad;
-            levelUpButtonX = W / 2 - CONFIG.BUTTON.BUTTON_SPACING;
+            // Level-up sits to the left of spawn at the same Y
+            levelUpButtonX = spawnButtonX - L.spawnBtnDisplayW / 2 - 20 - L.spawnBtnDisplayH * 0.4;
             levelUpButtonY = spawnButtonY;
         } else {
             const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
@@ -2583,12 +2584,12 @@ class GameScene extends Phaser.Scene {
             const availHeight = L.gridHeight;
             const gridTopMargin = (availHeight - gridH) / 2;
             const gridBottomY = L.gridTop + gridTopMargin + gridH + this.CELL_SIZE / 2;
-            
+
             spawnButtonX = L.gridLeft + L.gridWidth / 2;
             spawnButtonY = gridBottomY + 30;
-            
-            levelUpButtonX = spawnButtonX;
-            levelUpButtonY = spawnButtonY + CONFIG.BUTTON.SPAWN_HEIGHT + 30;
+            // Level-up sits to the left of spawn at the same Y (was below, which clipped off screen)
+            levelUpButtonX = spawnButtonX - L.spawnBtnDisplayW / 2 - 20 - L.spawnBtnDisplayH * 0.4;
+            levelUpButtonY = spawnButtonY;
         }
 
         // Spawn button
@@ -2622,7 +2623,7 @@ class GameScene extends Phaser.Scene {
         // Level-up button
         const lvlBtn = this.add.container(levelUpButtonX, levelUpButtonY).setDepth(100);
         const lvlBg  = this.add.rectangle(0, 0,
-            CONFIG.BUTTON.LEVELUP_WIDTH, CONFIG.BUTTON.LEVELUP_HEIGHT,
+            L.spawnBtnDisplayH * 0.8, L.spawnBtnDisplayH * 0.8,
             hexColor(CONFIG.BUTTON.LEVELUP_COLOR))
             .setStrokeStyle(CONFIG.BUTTON.LEVELUP_BORDER_WIDTH,
                 hexColor(CONFIG.BUTTON.LEVELUP_BORDER_COLOR))
@@ -2645,8 +2646,8 @@ class GameScene extends Phaser.Scene {
     }
 
     createStartOverlay() {
-        const W = window.innerWidth || this.cameras.main.width;
-        const H = window.innerHeight || this.cameras.main.height;
+        const W = this.scale.width;
+        const H = this.scale.height;
         const L = this.layoutConfig;
         
         // Use actual camera/game dimensions for the overlay rect to ensure full coverage
