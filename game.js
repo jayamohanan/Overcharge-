@@ -205,6 +205,19 @@ class GameScene extends Phaser.Scene {
         const crownIconSize      = Math.round(CONFIG.BATTERY_UNLOCK_DISPLAY.CROWN_ICON_SIZE * scale);
         const unlockTextSize     = Math.max(12, Math.round(24 * scale)) + 'px';
 
+        // Drawing geometry — cell and slot borders/radii
+        const cellInset         = Math.max(1, Math.floor(CONFIG.CELL.INSET_BORDER_WIDTH * scale));
+        const cellRadius        = Math.round(CONFIG.CELL.RADIUS * scale);
+
+        // Drawing geometry — platform stripes and wire
+        const stripeRadius      = Math.max(1, Math.round(6 * platformScale));
+        const wireThickness     = Math.max(1, Math.round(CONFIG.PLATFORM.WIRE_THICKNESS   * platformScale));
+        const wireRigidLen      = Math.max(1, Math.round(CONFIG.PLATFORM.WIRE_RIGID_LENGTH * platformScale));
+
+        // VFX sizes
+        const mergeEffectRadius = Math.round(50 * scale);
+        const rewardCoinSize    = Math.round(CONFIG.COIN_REWARD_ANIMATION.REWARD_COIN_SIZE * scale);
+
         this.layoutConfig = {
             screenWidth: W, screenHeight: H, isPortrait: isP,
             cellSize, cellGap,
@@ -221,6 +234,10 @@ class GameScene extends Phaser.Scene {
             coinIconSize, coinTextSize, coinTextIconGap,
             // Crown display
             crownIconSize, unlockTextSize,
+            // Drawing geometry
+            cellInset, cellRadius, stripeRadius, wireThickness, wireRigidLen,
+            // VFX
+            mergeEffectRadius, rewardCoinSize,
             // Legacy compat fields
             gridLeft:         partA.x,
             gridWidth:        partA.width,
@@ -288,6 +305,16 @@ class GameScene extends Phaser.Scene {
         this.batteryYOffset     = L.batteryYOffset;
         this.levelTextYOffset   = L.levelTextYOffset;
         this.levelTextSize      = L.levelTextSize;
+        // Drawing geometry
+        this.CELL_RADIUS        = L.cellRadius;
+        this.cellInset          = L.cellInset;
+        this.platformScale      = L.platformScale;
+        this.stripeRadius       = L.stripeRadius;
+        this.wireThickness      = L.wireThickness;
+        this.wireRigidLen       = L.wireRigidLen;
+        // VFX
+        this.mergeEffectRadius  = L.mergeEffectRadius;
+        this.rewardCoinSize     = L.rewardCoinSize;
 
         // Background
         const bgGfx = this.add.graphics();
@@ -393,7 +420,7 @@ class GameScene extends Phaser.Scene {
             // Stripe
             const stripe = this.add.graphics();
             stripe.fillStyle(hexColor(P.STRIPE_COLOR), P.STRIPE_ALPHA);
-            stripe.fillRoundedRect(stripeLeftEdge, cy - stripeH / 2, stripeW, stripeH, 6);
+            stripe.fillRoundedRect(stripeLeftEdge, cy - stripeH / 2, stripeW, stripeH, Math.max(1, Math.round(6 * scale)));
             stripe.setDepth(2);
 
             // Slot backgrounds
@@ -448,7 +475,7 @@ class GameScene extends Phaser.Scene {
     _drawSlot(gfx, x, y, size, filled) {
         const shadow = hexColor(CONFIG.CELL.INSET_SHADOW_COLOR);
         const fill   = filled ? hexColor(CONFIG.CELL.FILLED_BG_COLOR) : hexColor(CONFIG.CELL.EMPTY_BG_COLOR);
-        const inset  = CONFIG.CELL.INSET_BORDER_WIDTH;
+        const inset  = Math.max(1, Math.round(CONFIG.CELL.INSET_BORDER_WIDTH * size / CONFIG.PLATFORM.SLOT_SIZE));
         const r      = Math.round(CONFIG.PLATFORM.SLOT_RADIUS * size / CONFIG.PLATFORM.SLOT_SIZE);
         gfx.clear();
         gfx.fillStyle(shadow, 1);
@@ -548,7 +575,7 @@ class GameScene extends Phaser.Scene {
         const fillW = p.stripeWidth * progress;
         p.chargeFill.clear();
         p.chargeFill.fillStyle(fillColor, 0.55);
-        p.chargeFill.fillRoundedRect(p.stripeLeftEdge, p.centerY - p.stripeHeight / 2, fillW, p.stripeHeight, 6);
+        p.chargeFill.fillRoundedRect(p.stripeLeftEdge, p.centerY - p.stripeHeight / 2, fillW, p.stripeHeight, this.stripeRadius);
     }
 
     // ── Tension effects: shake / tint / pulse / camera shake ─────────────────
@@ -653,7 +680,7 @@ class GameScene extends Phaser.Scene {
         if (d < 1) return;
 
         // Rigid vertical drop from plug bottom before the sag begins
-        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rigidLen = this.wireRigidLen;
         const rx = x1;               // rigid segment ends directly below plug
         const ry = y1 + rigidLen;
 
@@ -665,7 +692,7 @@ class GameScene extends Phaser.Scene {
         const N  = 28;
 
         gfx.clear();
-        gfx.lineStyle(P.WIRE_THICKNESS, P.WIRE_COLOR, 1);
+        gfx.lineStyle(this.wireThickness, P.WIRE_COLOR, 1);
 
         // Rigid segment
         gfx.beginPath();
@@ -1419,7 +1446,7 @@ class GameScene extends Phaser.Scene {
         if (d < 1) return [[x1, y1], [x2, y2]];
         
         // Rigid vertical segment
-        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rigidLen = this.wireRigidLen;
         const rx = x1;
         const ry = y1 + rigidLen;
         
@@ -1533,7 +1560,7 @@ class GameScene extends Phaser.Scene {
         const d = Math.hypot(x2 - x1, y2 - y1);
         if (d < 1) return;
         
-        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rigidLen = this.wireRigidLen;
         const rx = x1;
         const ry = y1 + rigidLen;
         
@@ -1757,7 +1784,7 @@ class GameScene extends Phaser.Scene {
         if (d < 1) return;
         
         // Rigid vertical segment
-        const rigidLen = P.WIRE_RIGID_LENGTH;
+        const rigidLen = this.wireRigidLen;
         const rx = x1;
         const ry = y1 + rigidLen;
         
@@ -2262,7 +2289,7 @@ class GameScene extends Phaser.Scene {
         const panel = this.add.image(cx, cy, 'grid_panel');
         panel.setDisplaySize(panW, panH).setDepth(1.5);
 
-        const inset = CONFIG.CELL.INSET_BORDER_WIDTH;
+        const inset = this.cellInset;
         for (let row = 0; row < this.GRID_ROWS; row++) {
             this.gridCells[row] = [];
             for (let col = 0; col < this.GRID_COLS; col++) {
@@ -3124,7 +3151,7 @@ class GameScene extends Phaser.Scene {
     }
 
     createMergeEffect(x, y) {
-        const c = this.add.circle(x, y, 50, 0xFFFFFF, 0.8).setDepth(20);
+        const c = this.add.circle(x, y, this.mergeEffectRadius, 0xFFFFFF, 0.8).setDepth(20);
         this.tweens.add({ targets: c, scaleX: 2, scaleY: 2, alpha: 0, duration: 300, onComplete: () => c.destroy() });
     }
 
@@ -3262,7 +3289,7 @@ class GameScene extends Phaser.Scene {
         const coins = [];
         for (let i = 0; i < C.COIN_COUNT; i++) {
             const coin = this.add.image(startX, startY - i * C.INITIAL_STACK_OFFSET, 'coin')
-                .setDisplaySize(C.REWARD_COIN_SIZE, C.REWARD_COIN_SIZE)
+                .setDisplaySize(this.rewardCoinSize, this.rewardCoinSize)
                 .setDepth(2.5 + i * 0.01);  // Behind gadget sprite (which is at depth 4)
             coins.push(coin);
         }
