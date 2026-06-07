@@ -3348,7 +3348,7 @@ const config = {
         resolution: window.devicePixelRatio || 1,
         expandParent: true,
     },
-    render: { antialias: true, pixelArt: false, roundPixels: true, resolution: window.devicePixelRatio || 1 },
+    render: { antialias: true, pixelArt: false, roundPixels: false, resolution: window.devicePixelRatio || 1 },
 };
 
 if (typeof window !== 'undefined' && !window.__LEVEL_VIEWER__) {
