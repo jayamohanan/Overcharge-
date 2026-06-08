@@ -115,41 +115,24 @@ class GameScene extends Phaser.Scene {
             partB = { x: W*0.5, y: 0,       width: W * 0.5, height: H };
         }
 
-        // ── PROPORTIONAL SIZING — orientation-agnostic ─────────────────────────
-        // All spacings scale with cellSize so the layout has identical proportions
-        // in both portrait and landscape.
+        // ── UNIFORM SCALE — single design reference for ALL devices/orientations ─
+        // We always lay content out INSIDE a half (partA). The left-half (landscape)
+        // and bottom-half (portrait) have nearly the same aspect on real devices, so
+        // one half-reference covers both — no isPortrait branch, no upper clamp.
         //
-        // Reference spacings at BASE cellSize (landscape looks good):
-        //   panPad=40, btnBottomPad=70, btnGridGap=50, coinGridGap=25
-        //   spawnBtnLogHalf=45 (fixed — not scaled, same as CONFIG.BUTTON.SPAWN_HEIGHT/2)
-        //   coinHalf+margin=30 (fixed overhead)
-        //
-        // Scalable total = 40+70+50+25 = 185  (panPad+btnBot+btnGrid+coinGrid)
-        // Fixed overhead = (ROWS-1)*GAP + spawnBtnLogHalf + 30 = 8+45+30 = 83
-        //
-        // Width constraint: (COLS + 2*panPad/BASE)*cellSize + (COLS-1)*GAP + 20 ≤ partA.width
-        //   → cellSize ≤ (partA.width − 28) × BASE / (COLS×BASE + 2×panPadRef)
-        // Height constraint: (ROWS + 185/BASE)*cellSize + 83 + (ROWS-1)*GAP ≤ partA.height
-        //   → cellSize ≤ (partA.height − 83) × BASE / (ROWS×BASE + 185)
-
+        // Design reference: my 1440×778 landscape MacBook, whose partA (left half) is
+        // 720×778 and looks correct. Scale by the tighter axis so the square 3×3 grid
+        // always fits the live half and never overflows; scale > 1 on bigger screens.
         const BASE        = this.CELL_SIZE;                           // 130
         const panPadRef   = CONFIG.CELL.GRID_PANEL_PADDING;          // 40
         const btnBotRef   = CONFIG.BUTTON.BOTTOM_PADDING;            // 70
         const btnGridRef  = CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP; // 50
         const coinGapRef  = 25;
-        const SCALE_SUM   = panPadRef + btnBotRef + btnGridRef + coinGapRef; // 185
         const spawnBtnLogHalf = CONFIG.BUTTON.SPAWN_HEIGHT / 2;     // 45 — fixed
-        const FIXED_OH    = (ROWS - 1) * GAP + spawnBtnLogHalf + 30; // 83
 
-        const maxCellFromW = Math.floor(
-            (partA.width  - (COLS - 1) * GAP - 20) * BASE / (COLS * BASE + 2 * panPadRef)
-        );
-        const maxCellFromH = Math.floor(
-            (partA.height - FIXED_OH) * BASE / (ROWS * BASE + SCALE_SUM)
-        );
-
-        const cellSize = Math.min(BASE, maxCellFromW, maxCellFromH);
-        const scale    = cellSize / BASE;   // 1.0 at reference; <1 when box is smaller
+        const REF_W = 720, REF_H = 778;                                    // design partA from my 1440×778 landscape MacBook
+        const scale = Math.min(partA.width / REF_W, partA.height / REF_H); // min = fit the tighter axis: uniform, keeps the square, never overflows
+        const cellSize = BASE * scale;                                     // no clamp — scales up past the reference on bigger screens
 
         // Derive all spacings proportionally (floor ensures they never overflow the box)
         const panPad        = Math.floor(panPadRef  * scale);   // 40 → e.g. 30
@@ -164,7 +147,7 @@ class GameScene extends Phaser.Scene {
         );
 
         // ── Platform scale: slot size matches cell size ────────────────────────
-        const platformScale       = Math.min(1.0, cellSize / P.SLOT_SIZE);
+        const platformScale       = cellSize / P.SLOT_SIZE;   // same uniform factor (SLOT_SIZE === BASE === 130); no 1.0 clamp
         const platformStripeWidth = Math.min(P.STRIPE_WIDTH * platformScale, partB.width - 20);
 
         // ── Platform Y positions: evenly spaced, outer padding scales with platform ─
@@ -299,6 +282,10 @@ class GameScene extends Phaser.Scene {
         // Calculate layout based on orientation
         this.calculateLayout();
         const L = this.layoutConfig;
+        // One-time layout sanity log (scale / cellSize / grid panel size)
+        const _panW = this.GRID_COLS * L.cellSize + (this.GRID_COLS - 1) * L.cellGap + 2 * L.panPad;
+        const _panH = this.GRID_ROWS * L.cellSize + (this.GRID_ROWS - 1) * L.cellGap + 2 * L.panPad;
+        console.log(`[layout] partA=${Math.round(L.partA.width)}x${Math.round(L.partA.height)} scale=${(L.cellSize / CONFIG.CELL.SIZE).toFixed(3)} cellSize=${L.cellSize.toFixed(1)} panel=${_panW.toFixed(0)}x${_panH.toFixed(0)} panel/partA=${(_panW / L.partA.width).toFixed(2)}`);
         this.CELL_SIZE          = L.cellSize;
         this.CELL_GAP           = L.cellGap;
         this.batteryDisplaySize = L.batteryDisplaySize;
