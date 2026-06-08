@@ -397,7 +397,7 @@ class GameScene extends Phaser.Scene {
         const dbgPadSlot  = s(P.DEBUG_RECT_PADDING_FROM_SLOT);
         const dbgPadStr   = s(P.DEBUG_RECT_PADDING_FROM_STRIPE);
         const dbgW        = s(P.DEBUG_RECT_WIDTH);
-        const dbgH        = s(P.DEBUG_RECT_HEIGHT);
+        const dbgH        = s(P.DEBUG_RECT_WIDTH / P.DEBUG_RECT_ASPECT_RATIO);
         const socketGap   = s(P.SOCKET_GAP_FROM_SLOT);
         const socketSize  = s(P.SOCKET_SIZE);
         const plugSize    = s(P.PLUG_SIZE);

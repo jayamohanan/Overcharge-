@@ -192,8 +192,8 @@ var CONFIG = {
         DEBUG_RECT_PADDING_FROM_SLOT: 160, // padding from slot right edge to debug rect left edge (px)
         DEBUG_RECT_PADDING_FROM_STRIPE: 14, // padding from stripe top to debug rect bottom (px)
         DEBUG_RECT_WIDTH: 180,         // max width for gadget display area (px)
-        DEBUG_RECT_HEIGHT: 115,        // max height for gadget display area (px)
-        DEBUG_RECT_SHOW: false,        // show semi-transparent rect for max gadget area
+        DEBUG_RECT_ASPECT_RATIO: 3/2,  // width:height ratio — height = WIDTH / RATIO (3:2 = 180×120)
+        DEBUG_RECT_SHOW: true,        // show semi-transparent rect for max gadget area
         DEBUG_RECT_COLOR: 0xFF00FF,    // debug rect color (magenta)
         DEBUG_RECT_ALPHA: 0.1,         // debug rect transparency (0-1)
         
@@ -372,7 +372,7 @@ function getBatteryIconLevel(level) {
 //
 // Platform/Charger System:
 //   • Charger slot (battery holder):   130 × 130 px  (PLATFORM.SLOT_SIZE) — same as grid cell
-//   • Debug rect (max gadget area):    200 × 115 px  (PLATFORM.DEBUG_RECT_WIDTH × DEBUG_RECT_HEIGHT)
+//   • Debug rect (max gadget area):    180 × 120 px  (PLATFORM.DEBUG_RECT_WIDTH × WIDTH/ASPECT_RATIO, 3:2)
 //   • Gadget sprite (within debug):    auto-sized    (aspect ratio preserved, centered horizontally, touching bottom)
 //   • Socket (on slot):                 40 × 40 px   (PLATFORM.SOCKET_SIZE)
 //   • Plug (on wire):                   28 × 28 px   (PLATFORM.PLUG_SIZE)
