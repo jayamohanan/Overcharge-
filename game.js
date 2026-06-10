@@ -115,64 +115,62 @@ class GameScene extends Phaser.Scene {
             partB = { x: W*0.5, y: 0,       width: W * 0.5, height: H };
         }
 
-        // ── PROPORTIONAL SIZING — orientation-agnostic ─────────────────────────
-        // All spacings scale with cellSize so the layout has identical proportions
-        // in both portrait and landscape.
-        //
-        // Reference spacings at BASE cellSize (landscape looks good):
-        //   panPad=40, btnBottomPad=70, btnGridGap=50, coinGridGap=25
-        //   spawnBtnLogHalf=45 (fixed — not scaled, same as CONFIG.BUTTON.SPAWN_HEIGHT/2)
-        //   coinHalf+margin=30 (fixed overhead)
-        //
-        // Scalable total = 40+70+50+25 = 185  (panPad+btnBot+btnGrid+coinGrid)
-        // Fixed overhead = (ROWS-1)*GAP + spawnBtnLogHalf + 30 = 8+45+30 = 83
-        //
-        // Width constraint: (COLS + 2*panPad/BASE)*cellSize + (COLS-1)*GAP + 20 ≤ partA.width
-        //   → cellSize ≤ (partA.width − 28) × BASE / (COLS×BASE + 2×panPadRef)
-        // Height constraint: (ROWS + 185/BASE)*cellSize + 83 + (ROWS-1)*GAP ≤ partA.height
-        //   → cellSize ≤ (partA.height − 83) × BASE / (ROWS×BASE + 185)
-
+        // ── TWO-FACTOR RESPONSIVE SIZING ───────────────────────────────────────
+        // Single design reference = my 1440×778 landscape MacBook, whose partA
+        // (left half) is 720×778. partB has identical dimensions to partA in both
+        // orientations, so the same factors apply to both halves.
+        //   sW    = width  ratio  → HORIZONTAL gaps / margins / offsets
+        //   sH    = height ratio  → VERTICAL   gaps / margins / positions
+        //   scale = min(sW, sH)   → UNIFORM element SIZES (keeps the grid square)
+        // No upper clamp — everything scales past the reference on bigger screens.
         const BASE        = this.CELL_SIZE;                           // 130
         const panPadRef   = CONFIG.CELL.GRID_PANEL_PADDING;          // 40
         const btnBotRef   = CONFIG.BUTTON.BOTTOM_PADDING;            // 70
         const btnGridRef  = CONFIG.MERGE_GRID.PADDING_FROM_BUTTON_TOP; // 50
         const coinGapRef  = 25;
-        const SCALE_SUM   = panPadRef + btnBotRef + btnGridRef + coinGapRef; // 185
-        const spawnBtnLogHalf = CONFIG.BUTTON.SPAWN_HEIGHT / 2;     // 45 — fixed
-        const FIXED_OH    = (ROWS - 1) * GAP + spawnBtnLogHalf + 30; // 83
+        const spawnBtnLogHalfRef = CONFIG.BUTTON.SPAWN_HEIGHT / 2;   // 45
 
-        const maxCellFromW = Math.floor(
-            (partA.width  - (COLS - 1) * GAP - 20) * BASE / (COLS * BASE + 2 * panPadRef)
-        );
-        const maxCellFromH = Math.floor(
-            (partA.height - FIXED_OH) * BASE / (ROWS * BASE + SCALE_SUM)
-        );
+        const REF_W = 720, REF_H = 778;                 // design partA from my 1440×778 MacBook
+        const sW    = partA.width  / REF_W;             // horizontal ratio
+        const sH    = partA.height / REF_H;             // vertical ratio
+        const scale = Math.min(sW, sH);                 // uniform size factor (square-preserving)
+        const cellSize = BASE * scale;                  // no Math.min(BASE,…) clamp
 
-        const cellSize = Math.min(BASE, maxCellFromW, maxCellFromH);
-        const scale    = cellSize / BASE;   // 1.0 at reference; <1 when box is smaller
-
-        // Derive all spacings proportionally (floor ensures they never overflow the box)
-        const panPad        = Math.floor(panPadRef  * scale);   // 40 → e.g. 30
-        const btnBottomPad  = Math.floor(btnBotRef  * scale);   // 70 → e.g. 52
-        const btnGridGap    = Math.floor(btnGridRef * scale);   // 50 → e.g. 37
-        const coinGridGap   = Math.floor(coinGapRef * scale);   // 25 → e.g. 18
-        const spawnBtnDisplayH = Math.floor((CONFIG.BUTTON.SPAWN_HEIGHT + 30) * scale); // 120 → e.g. 90
+        // SIZES — uniform `scale`
+        const panPad           = Math.floor(panPadRef * scale);
+        const spawnBtnLogHalf  = spawnBtnLogHalfRef * scale;        // button half-height is a SIZE
+        const spawnBtnDisplayH = Math.floor((CONFIG.BUTTON.SPAWN_HEIGHT + 30) * scale);
         const panW             = COLS * cellSize + (COLS - 1) * GAP + 2 * panPad;
         const spawnBtnDisplayW = Math.min(
             Math.floor((CONFIG.BUTTON.SPAWN_WIDTH + 30) * scale),
-            panW - 10
+            panW - 10                                                // relational cap — kept
         );
 
-        // ── Platform scale: slot size matches cell size ────────────────────────
-        const platformScale       = Math.min(1.0, cellSize / P.SLOT_SIZE);
-        const platformStripeWidth = Math.min(P.STRIPE_WIDTH * platformScale, partB.width - 20);
+        // VERTICAL anchors — each block's centre sits at a fixed fraction of
+        // partA.height (designY × sH). The topmost item therefore lands at its
+        // design Y on any aspect (no empty top band), and because scale ≤ sH the
+        // scale-sized elements never overflow the proportional spacing (no overlap).
+        // Design anchor Ys are derived once from the gap refs at design scale.
+        const designGridH       = ROWS * BASE + (ROWS - 1) * CONFIG.CELL.GAP;       // 398
+        const designPanH        = designGridH + 2 * panPadRef;                      // 478
+        const designButtonCY    = REF_H - btnBotRef;                                // 708
+        const designGridBotEdge = designButtonCY - spawnBtnLogHalfRef - btnGridRef; // 613
+        const designPanelCY     = designGridBotEdge + panPadRef - designPanH / 2;   // 414
+        const designCoinCY      = designPanelCY - designPanH / 2 - coinGapRef;      // 150
+        const buttonCenterY     = partA.y + designButtonCY * sH;
+        const panelCenterY      = partA.y + designPanelCY  * sH;
+        const coinCenterY       = partA.y + designCoinCY   * sH;
 
-        // ── Platform Y positions: evenly spaced, outer padding scales with platform ─
+        // ── Platform scale: slot size matches cell size (partB == partA dims) ──
+        const platformScale       = cellSize / P.SLOT_SIZE;   // === scale; no 1.0 clamp
+        const platformStripeWidth = Math.min(P.STRIPE_WIDTH * platformScale, partB.width - 20); // relational cap kept
+
+        // ── Platform Y positions: evenly spaced; vertical outer margin uses sH ──
         const topExtent1 = P.STRIPE_HEIGHT / 2 + P.SLOT_ABOVE_STRIPE + P.SLOT_SIZE + P.CHARGE_RATE_GAP + 11;
         const botExtent1 = P.STRIPE_HEIGHT / 2;
-        const topExtentS = topExtent1 * platformScale;
+        const topExtentS = topExtent1 * platformScale;        // SIZE extents → scale
         const botExtentS = botExtent1 * platformScale;
-        const outerPad   = Math.round(60 * platformScale);  // scales with platform (was isP?25:60)
+        const outerPad   = Math.round(60 * sH);               // VERTICAL margin → sH
         const cy1        = partB.y + topExtentS + outerPad;
         const cy3        = partB.y + partB.height - botExtentS - outerPad;
         const cySpacing  = (cy3 - cy1) / 2;
@@ -224,7 +222,8 @@ class GameScene extends Phaser.Scene {
             panPad, spawnBtnDisplayH, spawnBtnDisplayW, spawnBtnLogicalHalf: spawnBtnLogHalf,
             partA, partB,
             platformScale, platformYPositions, platformStripeWidth,
-            btnBottomPad, btnGridGap, coinGridGap,
+            sW, sH, scale,
+            panelCenterY, buttonCenterY, coinCenterY,
             // Battery / cell content
             batteryDisplaySize, batteryYOffset, levelTextYOffset, levelTextSize,
             // Spawn button contents
@@ -292,6 +291,19 @@ class GameScene extends Phaser.Scene {
     // CREATE
     // ================================================================
     create() {
+
+        const c = this.game.canvas;
+const dpr = window.devicePixelRatio || 1;
+console.log(
+  `[buffer] backingStore=${c.width}x${c.height} ` +          // actual render pixels (drawing buffer)
+  `cssDisplay=${c.clientWidth}x${c.clientHeight} ` +          // size shown on page (CSS px)
+  `DPR=${dpr} ` +
+  `physicalScreen=${Math.round(c.clientWidth*dpr)}x${Math.round(c.clientHeight*dpr)}`  // what the screen really has
+);
+
+
+
+
         this.assets = new AssetManager(this);
         const W = this.scale.width;
         const H = this.scale.height;
@@ -299,6 +311,16 @@ class GameScene extends Phaser.Scene {
         // Calculate layout based on orientation
         this.calculateLayout();
         const L = this.layoutConfig;
+        // One-time responsive-layout sanity log
+        const _cx   = L.partA.x + L.partA.width / 2;
+        const _panW = this.GRID_COLS * L.cellSize + (this.GRID_COLS - 1) * L.cellGap + 2 * L.panPad;
+        const _panH = this.GRID_ROWS * L.cellSize + (this.GRID_ROWS - 1) * L.cellGap + 2 * L.panPad;
+        console.log(`[layout] partA=${Math.round(L.partA.width)}x${Math.round(L.partA.height)} ` +
+            `sW=${L.sW.toFixed(3)} sH=${L.sH.toFixed(3)} scale=${L.scale.toFixed(3)} cellSize=${L.cellSize.toFixed(1)} ` +
+            `panel=${_panW.toFixed(0)}x${_panH.toFixed(0)} | ` +
+            `coin=(${_cx.toFixed(0)},${L.coinCenterY.toFixed(0)}) ` +
+            `grid=(${_cx.toFixed(0)},${L.panelCenterY.toFixed(0)}) ` +
+            `button=(${_cx.toFixed(0)},${L.buttonCenterY.toFixed(0)})`);
         this.CELL_SIZE          = L.cellSize;
         this.CELL_GAP           = L.cellGap;
         this.batteryDisplaySize = L.batteryDisplaySize;
@@ -2268,12 +2290,10 @@ class GameScene extends Phaser.Scene {
         const gridW = this.GRID_COLS * this.CELL_SIZE + (this.GRID_COLS - 1) * this.CELL_GAP;
         const gridH = this.GRID_ROWS * this.CELL_SIZE + (this.GRID_ROWS - 1) * this.CELL_GAP;
         
-        // Unified layout: anchor spawn button to partA bottom, place grid above it.
-        // Works in both portrait (partA = bottom half) and landscape (partA = left half).
-        const boxBottom  = L.partA.y + L.partA.height;
-        const buttonY    = boxBottom - L.btnBottomPad;
-        const gridBotY   = buttonY - L.spawnBtnLogicalHalf - L.btnGridGap;
-        const gridStartY = gridBotY - gridH + this.CELL_SIZE / 2;
+        // Grid panel centre is anchored to a fixed fraction of partA.height
+        // (L.panelCenterY); cells are laid around it using the actual scale-sized
+        // gridH. Horizontally centred in the half (works in both orientations).
+        const gridStartY = L.panelCenterY - gridH / 2 + this.CELL_SIZE / 2;
         const gridStartX = L.partA.x + (L.partA.width - gridW) / 2 + this.CELL_SIZE / 2;
         const gridCenterX = L.partA.x + L.partA.width / 2;
 
@@ -2332,8 +2352,8 @@ class GameScene extends Phaser.Scene {
         // Unified: derive panel centre from gridStartX/Y (set by createGrid)
         const panCX   = this.gridStartX - this.CELL_SIZE / 2 + gridW / 2;
         const panCY   = this.gridStartY - this.CELL_SIZE / 2 + gridH / 2;
-        const coinY     = panCY - panH / 2 - L.coinGridGap;
-        const rightEdge = panCX + panW / 2;
+        const coinY     = L.coinCenterY;            // fixed fraction of partA.height (× sH)
+        const rightEdge = panCX + panW / 2;         // right-aligned to grid panel (relational)
 
         // Icon right edge aligns with grid panel right edge; scaled gap to text
         const iconX = rightEdge - L.coinIconSize / 2;
@@ -2641,12 +2661,11 @@ class GameScene extends Phaser.Scene {
         const H = this.scale.height;
         const L = this.layoutConfig;
         
-        // Unified: anchor spawn button to partA bottom (consistent with createGrid)
-        const boxBottom    = L.partA.y + L.partA.height;
+        // Spawn button: horizontally centred, vertically at a fixed fraction of partA.height
         const spawnButtonX = L.partA.x + L.partA.width / 2;
-        const spawnButtonY = boxBottom - L.btnBottomPad;
-        // Level-up sits to the left of spawn at the same Y
-        const levelUpButtonX = spawnButtonX - L.spawnBtnDisplayW / 2 - 20 - L.spawnBtnDisplayH * 0.4;
+        const spawnButtonY = L.buttonCenterY;
+        // Level-up sits to the left of spawn at the same Y (horizontal gap × sW)
+        const levelUpButtonX = spawnButtonX - L.spawnBtnDisplayW / 2 - 20 * L.sW - L.spawnBtnDisplayH * 0.4;
         const levelUpButtonY = spawnButtonY;
 
         // Spawn button
@@ -3341,7 +3360,7 @@ const config = {
     backgroundColor: '#7B68EE',
     scene: [GameScene],
     scale: {
-        mode: Phaser.Scale.RESIZE,
+        mode: Phaser.Scale.fillRect,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: GAME_WIDTH,
         height: GAME_HEIGHT,
