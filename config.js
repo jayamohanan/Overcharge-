@@ -193,7 +193,7 @@ var CONFIG = {
         DEBUG_RECT_PADDING_FROM_STRIPE: 14, // padding from stripe top to debug rect bottom (px)
         DEBUG_RECT_WIDTH: 180,         // max width for gadget display area (px)
         DEBUG_RECT_ASPECT_RATIO: 3/2,  // width:height ratio — height = WIDTH / RATIO (3:2 = 180×120)
-        DEBUG_RECT_SHOW: true,        // show semi-transparent rect for max gadget area
+        DEBUG_RECT_SHOW: false,        // show semi-transparent rect for max gadget area
         DEBUG_RECT_COLOR: 0xFF00FF,    // debug rect color (magenta)
         DEBUG_RECT_ALPHA: 0.1,         // debug rect transparency (0-1)
         
