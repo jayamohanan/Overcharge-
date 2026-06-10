@@ -3360,7 +3360,7 @@ const config = {
     backgroundColor: '#7B68EE',
     scene: [GameScene],
     scale: {
-        mode: Phaser.Scale.fillRect,
+        mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
         width: GAME_WIDTH,
         height: GAME_HEIGHT,
