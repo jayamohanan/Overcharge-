@@ -3354,20 +3354,44 @@ const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 const GAME_WIDTH = isMobile ? 720 : 1280;
 const GAME_HEIGHT = isMobile ? 1280 : 720;
+
+// ── HiDPI rendering ────────────────────────────────────────────────────────
+// Draw the canvas at device pixels (CSS × DPR) so sprites are crisp on retina /
+// high-DPI screens. The backing store matches the physical screen → no browser
+// upscale; the canvas still DISPLAYS at logical CSS size. Scale.NONE lets us own
+// the sizing (Scale.RESIZE would force the buffer back to CSS px every resize).
+// Raw DPR for maximum clarity — this is a light 2D game. If a weak phone ever
+// drops frames, change `dpr` to `Math.min(window.devicePixelRatio || 1, 2)`.
+function resizeToHiDPI(game) {
+    const dpr = window.devicePixelRatio || 1;
+    game.scale.resize(window.innerWidth * dpr, window.innerHeight * dpr); // backing store = device pixels
+    game.scale.setZoom(1 / dpr);   // display the device-px buffer at logical CSS size
+    // (zoom lets Phaser manage canvas CSS size AND pointer→game coord mapping correctly)
+}
+
+const _DPR = window.devicePixelRatio || 1;
 const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
     backgroundColor: '#7B68EE',
     scene: [GameScene],
     scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: GAME_WIDTH,
-        height: GAME_HEIGHT,
-        resolution: window.devicePixelRatio || 1,
+        mode: Phaser.Scale.NONE,            // we own sizing via resizeToHiDPI()
+        autoCenter: Phaser.Scale.NO_CENTER, // canvas fills the viewport; centering would offset it by ~half (device-px margins)
+        width:  (window.innerWidth  || GAME_WIDTH)  * _DPR,   // start at device pixels
+        height: (window.innerHeight || GAME_HEIGHT) * _DPR,
+        zoom:   1 / _DPR,                                     // display device-px buffer at logical CSS size
         expandParent: true,
     },
-    render: { antialias: true, pixelArt: false, roundPixels: false, resolution: window.devicePixelRatio || 1 },
+    render: { antialias: true, pixelArt: false, roundPixels: false },
+    callbacks: {
+        // Runs after the canvas exists, before the first render: lock in exact
+        // device-pixel sizing and keep it in sync on window resize / rotation.
+        postBoot: (game) => {
+            resizeToHiDPI(game);
+            window.addEventListener('resize', () => resizeToHiDPI(game));
+        },
+    },
 };
 
 if (typeof window !== 'undefined' && !window.__LEVEL_VIEWER__) {
