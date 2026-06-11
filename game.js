@@ -39,6 +39,13 @@ class AssetManager {
         if (!data) return Promise.resolve();
         return this.ensureImage(key, `graphics/battery/${data.fileName}`);
     }
+
+    // Warm a battery level in the background (fire-and-forget).
+    // ensureBattery already dedupes via textures.exists + the loading Map.
+    prefetchBattery(level) {
+        if (level < 1) return;
+        this.ensureBattery(level).catch(() => {});
+    }
 }
 
 class GameScene extends Phaser.Scene {
@@ -388,6 +395,7 @@ console.log(
         this.createCoinDisplay();
         this.createBatteryUnlockDisplay();
         this.spawnBatteryInGrid(0, 0, CONFIG.BATTERY_START_LEVEL);
+        this.assets.prefetchBattery(CONFIG.BATTERY_START_LEVEL + 1);
         this.createButtons();
         this.createStartOverlay();
 
@@ -3016,6 +3024,7 @@ console.log(
         this.spawnBatteryInGrid(tRow, tCol, newLevel);
         if (newLevel > this.highestBatteryLevel) {
             this.highestBatteryLevel = newLevel; this.updateSpawnButton();
+            this.assets.prefetchBattery(newLevel + 1);
         }
         this.showBatteryUnlockDisplay(newLevel);
         this.createMergeEffect(this.gridCells[tRow][tCol].x, this.gridCells[tRow][tCol].y);
@@ -3119,6 +3128,7 @@ console.log(
         this.addBatteryToSlot(targetSlotIndex, newLevel);
         if (newLevel > this.highestBatteryLevel) {
             this.highestBatteryLevel = newLevel; this.updateSpawnButton();
+            this.assets.prefetchBattery(newLevel + 1);
         }
         this.showBatteryUnlockDisplay(newLevel);
         this.createMergeEffect(tp.slotX, tp.slotY);
@@ -3276,6 +3286,7 @@ console.log(
             }
         }
         this.updateSpawnButton();
+        this.assets.prefetchBattery(this.highestBatteryLevel + 1);
         if (this.highestBatteryLevel > this.highestUnlockedBatteryLevel) {
             this.showBatteryUnlockDisplay(this.highestBatteryLevel);
         }
@@ -3290,12 +3301,9 @@ console.log(
     // COIN DISPLAY
     // ================================================================
     updateCoinDisplay() {
+        // Text is right-aligned (origin 1, 0.5), so its right edge stays fixed
+        // at coinText.x and the icon never needs to move.
         this.coinText.setText(`${this.coins}`);
-        const L = this.layoutConfig;
-        const iconX = this.coinText.x + this.coinText.width / 2
-            + L.coinTextIconGap
-            + L.coinIconSize / 2;
-        this.coinIcon.setX(iconX);
         this.updateSpawnButton();
     }
 
