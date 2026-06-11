@@ -3369,6 +3369,25 @@ function resizeToHiDPI(game) {
     // (zoom lets Phaser manage canvas CSS size AND pointer→game coord mapping correctly)
 }
 
+// Resizing the buffer alone makes the canvas cover the viewport, but the scene's
+// layout was computed once for the old size — so content stays in the old (top-left)
+// region and the rest shows the canvas background. To make the game FILL any new
+// viewport, re-run the scene layout on resize. The cheapest reliable way (given the
+// scene rebuilds everything from layoutConfig in create()) is to restart the scene.
+// Debounced so a drag-resize doesn't thrash. NOTE: there's no save system yet, so a
+// restart resets in-memory state (coins/grid) — same as a page refresh. When you add
+// persistence, this will preserve progress automatically.
+let _reflowTimer = null;
+function reflowOnResize(game) {
+    resizeToHiDPI(game);                       // keep the canvas covering the viewport immediately
+    clearTimeout(_reflowTimer);
+    _reflowTimer = setTimeout(() => {
+        resizeToHiDPI(game);                   // capture the final settled size
+        const scene = game.scene.getScene('GameScene');
+        if (scene) scene.scene.restart();      // re-run create() → layout fills the new viewport
+    }, 150);
+}
+
 const _DPR = window.devicePixelRatio || 1;
 const config = {
     type: Phaser.AUTO,
@@ -3389,7 +3408,7 @@ const config = {
         // device-pixel sizing and keep it in sync on window resize / rotation.
         postBoot: (game) => {
             resizeToHiDPI(game);
-            window.addEventListener('resize', () => resizeToHiDPI(game));
+            window.addEventListener('resize', () => reflowOnResize(game));
         },
     },
 };
