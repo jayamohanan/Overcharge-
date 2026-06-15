@@ -213,6 +213,14 @@ var CONFIG = {
         METER_RED_ZONE_ANGLE: 150,     // needle angle where red zone begins
         METER_OSCILLATION_OVERSHOOT: 12, // degrees of overshoot per tick
 
+        // ── Operating-capacity mark ────────────────────────────────────────────
+        // Progress (0-1) at which a gadget reaches its FULL operating capacity.
+        // Per-gadget charge effects (glow, spin, ...) ramp to MAX by this point and
+        // hold steady afterwards. The remaining range (mark → 1.0) is the "overload"
+        // zone where the gadget struggles/vibrates before exploding.
+        // Matches the meter's red-zone start (150/170 ≈ 0.882).
+        OPERATING_CAPACITY_MARK: 150 / 170,
+
         // ── Smoke effect ──────────────────────────────────────────────────────
         SMOKE_START_PROGRESS: 0.80,    // 0-1 charge fraction at which smoke begins
         SMOKE_FREQUENCY_START_MS: 600,  // ms between puffs when smoke first appears (sparse)

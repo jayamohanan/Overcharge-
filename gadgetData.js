@@ -104,7 +104,17 @@ var GADGET_SPRITES = [
         "normal_sprite": "bulb.png",
         "burnedout_sprite": "bulb_burnedout.png",
         "connection_height": 0.3,
-        "connection_left_padding": 0.5
+        "connection_left_padding": 0.5,
+        "charge_effect": "glow",
+        "charge_effect_params": {
+            // filament center of the 314x503 bulb sprite = (157, 187) px
+            "anchor": { "x": 0.5, "y": 0.372 },
+            "tint": 0xfff2a0,     // warm bulb glow
+            "maxAlpha": 1.0,
+            "sizeScale": 1.3,     // glow display width = gadget width * 1.3
+            "startScale": 0.85,
+            "endScale": 1.15
+        }
     },
      {
         "name": "brush",

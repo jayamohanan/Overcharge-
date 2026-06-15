@@ -285,11 +285,21 @@ class GameScene extends Phaser.Scene {
             this.load.image(`explosion_${String(i).padStart(2, '0')}`, `graphics/explosion/explosion_${String(i).padStart(2, '0')}.png`);
         }
         
+        // Shared white glow texture used by charge effects (additive blend)
+        this.load.image('glow', 'graphics/gadgets/glow.png');
+
         // Load gadget sprites from gadgetData.js
         if (typeof GADGET_SPRITES !== 'undefined' && GADGET_SPRITES) {
             GADGET_SPRITES.forEach(g => {
                 this.load.image(`gadget_${g.name}_normal`, `graphics/gadgets/${g.normal_sprite}`);
                 this.load.image(`gadget_${g.name}_burnedout`, `graphics/gadgets/${g.burnedout_sprite}`);
+
+                // Per-effect extra art (e.g. a fan's rotating leaf), if any
+                const fx = getChargeEffect(g.charge_effect);
+                const assets = fx.assets(g.charge_effect_params || {});
+                for (const [logical, file] of Object.entries(assets)) {
+                    this.load.image(`fx_${g.name}_${logical}`, `graphics/gadgets/${file}`);
+                }
             });
         }
     }
@@ -968,6 +978,12 @@ console.log(
             p.explosionEffects    = [];
             p._debugRect          = debugRect;
 
+            // Per-gadget charge effect (glow / spin / ...), layered on top
+            p._fx                 = {};
+            p._chargeEffectParams = gadgetData.charge_effect_params || {};
+            p._chargeEffect       = getChargeEffect(gadgetData.charge_effect);
+            p._chargeEffect.init(this, p, p._chargeEffectParams);
+
             // ── Wire connection ────────────────────────────────────────────────
             const socketX = p.slotX + p.slotSize / 2 + p.socketGap;
             const socketY = p.slotY;
@@ -1187,6 +1203,12 @@ console.log(
                 p.explosionEffects = [];
             }
             
+            // Tear down per-gadget charge effect
+            if (p._chargeEffect) p._chargeEffect.cleanup(this, p);
+            p._chargeEffect = null;
+            p._chargeEffectParams = null;
+            p._fx = null;
+
             if (p.gadgetSprite) this.tweens.killTweensOf(p.gadgetSprite);
             if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
@@ -1309,12 +1331,18 @@ console.log(
                 p.gadgetCurrentCharge + slot.chargePerMinute, p.gadgetCapacity);
             this.updateGadgetChargeBar(p);
             this._applyTensionEffects(p);
-            
+
+            // Per-gadget charge effect (e.g. bulb glow), driven by progress 0..1
+            const fxProgress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
+            p._chargeEffect.onProgress(this, p, fxProgress, p._chargeEffectParams);
+
             // Check if we've reached or exceeded capacity
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
                 // Mark that we've reached zero capacity - stop all future charging
                 p.reachedZeroCapacity = true;
-                
+
+                p._chargeEffect.onOvercharge(this, p, p._chargeEffectParams);
+
                 // Visual effects one last time before stopping
                 this._pulseBatteryIcon(p);
                 this._animateEnergyFlow(p);
@@ -1911,6 +1939,12 @@ console.log(
                     if (shakeCount === 3) {
                         // Stop all energy flow effects (sparks, auras) when sprite switches
                         this._stopEnergyEffects(p);
+
+                        // Fade out the per-gadget glow as the gadget burns out
+                        if (p._fx && p._fx.glow) {
+                            this.tweens.killTweensOf(p._fx.glow);
+                            this.tweens.add({ targets: p._fx.glow, alpha: 0, duration: 150, ease: 'Quad.easeOut' });
+                        }
                         
                         // Spawn coins behind the gadget sprite
                         if (p.gadgetCapacity && p.gadgetCapacity > 0) {
