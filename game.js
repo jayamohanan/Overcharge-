@@ -302,6 +302,10 @@ class GameScene extends Phaser.Scene {
                 }
             });
         }
+
+        // Tooth-cleaning art for the toothbrush level (not part of GADGET_SPRITES)
+        this.load.image('tooth_before', 'graphics/gadgets/tooth_before.png');
+        this.load.image('tooth_after',  'graphics/gadgets/tooth_after.png');
     }
 
     // ================================================================
@@ -457,6 +461,12 @@ console.log(
             const debugRectX = slotX + ssz / 2 + dbgPadSlot + dbgW / 2;
             const debugRectY = cy - stripeH / 2 - dbgPadStr - dbgH / 2;
 
+            // Tooth-cleaning area (toothbrush level), to the right of the gadget
+            const toothW     = s(P.TOOTH_AREA_WIDTH);
+            const toothH     = s(P.TOOTH_AREA_WIDTH / P.TOOTH_AREA_ASPECT_RATIO);
+            const toothAreaX = debugRectX + dbgW / 2 + s(P.TOOTH_PADDING_FROM_GADGET) + toothW / 2;
+            const toothAreaY = debugRectY + s(P.TOOTH_Y_OFFSET);
+
             // Stripe
             const stripe = this.add.graphics();
             stripe.fillStyle(hexColor(P.STRIPE_COLOR), P.STRIPE_ALPHA);
@@ -497,6 +507,7 @@ console.log(
                 chargeRateText, chargeRateBolt,
                 batterySprite: null, batteryLevelText: null,
                 debugRectX, debugRectY, debugRectWidth: dbgW, debugRectHeight: dbgH,
+                toothAreaX, toothAreaY, toothAreaWidth: toothW, toothAreaHeight: toothH,
                 socketSize, plugSize, socketGap,
                 capTextGap, capFontSize,
                 gadgetSprite: null,
@@ -886,6 +897,200 @@ console.log(
         };
     }
 
+    // Immediately redraw the reveal rect for a given progress (0..1).
+    // Build a stable, organic wavy edge profile (px offsets along the height),
+    // so the cleaned/dirty boundary isn't a perfect vertical line. Generated
+    // once per platform; the same shape just translates rightward as we clean.
+    _makeToothEdgeProfile(dispW) {
+        const N    = 14;
+        const amp  = dispW * 0.06;
+        const a1   = amp * (0.55 + Math.random() * 0.45);
+        const a2   = amp * 0.4;
+        const f1   = 1.5 + Math.random();
+        const f2   = 3 + Math.random() * 2;
+        const ph1  = Math.random() * Math.PI * 2;
+        const ph2  = Math.random() * Math.PI * 2;
+        const prof = [];
+        for (let i = 0; i <= N; i++) {
+            const t = i / N;
+            let dx = Math.sin(t * Math.PI * 2 * f1 + ph1) * a1
+                   + Math.sin(t * Math.PI * 2 * f2 + ph2) * a2
+                   + (Math.random() - 0.5) * amp * 0.5; // fixed per-platform jitter
+            prof.push(dx);
+        }
+        return prof;
+    }
+
+    _drawToothMask(p, progress) {
+        if (!p._toothMaskGfx) return;
+        const g  = p._toothMaskGfx;
+        const pr = Math.max(0, Math.min(1, progress));
+        const w  = pr * p._toothDispW;
+        const left = p._toothLeft, top = p._toothTop, h = p._toothDispH;
+        g.clear();
+        if (w <= 0) return;
+
+        // Once essentially complete, fill solid so no dirty slivers remain.
+        const prof = p._toothEdgeProfile;
+        if (pr >= 0.999 || !prof) {
+            g.fillStyle(0xffffff).fillRect(left, top, p._toothDispW, h);
+            return;
+        }
+
+        const N = prof.length - 1;
+        g.fillStyle(0xffffff);
+        g.beginPath();
+        g.moveTo(left, top);
+        for (let i = 0; i <= N; i++) {
+            const y = top + (h * i) / N;
+            let x = left + w + prof[i];
+            x = Math.max(left, Math.min(left + p._toothDispW, x));
+            g.lineTo(x, y);
+        }
+        g.lineTo(left, top + h);
+        g.closePath();
+        g.fillPath();
+    }
+
+    // Smoothly animate the left→right reveal toward a target progress (0..1).
+    // A "scrubber" glow rides the cleaning front (left→right only, no bounce),
+    // concentrated on the stretch being cleaned. Sparkles begin once fully clean.
+    _updateToothMask(p, target) {
+        if (!p._toothMaskGfx) return;
+        target = Math.max(0, Math.min(1, target));
+        if (p._toothTween) { p._toothTween.remove(); p._toothTween = null; }
+
+        const startV = p._toothProgress ?? 0;
+        const y0     = p._toothTop + p._toothDispH * 0.34;
+
+        // Scrubber glow sitting on the cleaning front, riding it rightward.
+        let sweep = null;
+        if (target > startV) {
+            const sweepSize = p._toothDispH * 0.55;
+            sweep = this.textures.exists('glow')
+                ? this.add.image(0, y0, 'glow').setDisplaySize(sweepSize, sweepSize)
+                : this.add.circle(0, y0, sweepSize / 2, 0xffffff);
+            sweep.setDepth(4.55).setBlendMode(Phaser.BlendModes.ADD)
+                 .setTint(0xcce8ff).setAlpha(0);
+            p._toothSweep = sweep;
+            p._toothBrushFx.push(sweep);
+            this._spawnToothFoam(p, startV, target, y0);
+        }
+
+        const state = { v: startV };
+        p._toothTween = this.tweens.add({
+            targets: state,
+            v: target,
+            duration: 850,
+            ease: 'Sine.easeOut',
+            onUpdate: () => {
+                p._toothProgress = state.v;
+                this._drawToothMask(p, state.v);
+                if (sweep) {
+                    sweep.x = p._toothLeft + state.v * p._toothDispW;
+                    const k = (state.v - startV) / Math.max(1e-4, target - startV);
+                    sweep.alpha = 0.8 * Math.sin(Math.min(1, k) * Math.PI); // fade in→out
+                }
+            },
+            onComplete: () => {
+                p._toothProgress = target;
+                p._toothTween = null;
+                if (sweep) {
+                    const idx = p._toothBrushFx.indexOf(sweep);
+                    if (idx >= 0) p._toothBrushFx.splice(idx, 1);
+                    p._toothSweep = null;
+                    sweep.destroy();
+                }
+                if (target >= 1) this._startToothSparkles(p);
+            },
+        });
+    }
+
+    // Foam bubbles rising along the freshly-cleaned stretch [fromV, toV].
+    _spawnToothFoam(p, fromV, toV, y0) {
+        const n = 3;
+        for (let i = 0; i < n; i++) {
+            const fv = fromV + (toV - fromV) * ((i + 0.5) / n);
+            const bx = p._toothLeft + fv * p._toothDispW + (Math.random() - 0.5) * 14;
+            const br = (2.5 + Math.random() * 3.5) * (this.platformScale || 1);
+            const bubble = this.add.circle(bx, y0 + 4, br, 0xffffff, 0.85)
+                .setDepth(4.55).setBlendMode(Phaser.BlendModes.ADD);
+            p._toothBrushFx.push(bubble);
+            this.tweens.add({
+                targets: bubble,
+                y: y0 - p._toothDispH * 0.16,
+                alpha: 0,
+                scale: { from: 0.5, to: 1.2 },
+                duration: 650 + Math.random() * 300,
+                ease: 'Sine.easeOut',
+                delay: 260 * i + Math.random() * 120,
+                onComplete: () => {
+                    const idx = p._toothBrushFx.indexOf(bubble);
+                    if (idx >= 0) p._toothBrushFx.splice(idx, 1);
+                    bubble.destroy();
+                },
+            });
+        }
+    }
+
+    // Generate a reusable white diamond (rotated-square gem) texture once.
+    _ensureSparkleTexture() {
+        if (this.textures.exists('tooth_sparkle')) return;
+        const R = 32;                 // half-extent
+        const g = this.make.graphics({ add: false });
+        g.fillStyle(0xffffff, 1);
+        g.beginPath();
+        g.moveTo(R, 0);               // top
+        g.lineTo(2 * R, R);           // right
+        g.lineTo(R, 2 * R);           // bottom
+        g.lineTo(0, R);               // left
+        g.closePath();
+        g.fillPath();
+        // brighter inner core for a gem-like glint
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(R, R, R * 0.18);
+        g.generateTexture('tooth_sparkle', R * 2, R * 2);
+        g.destroy();
+    }
+
+    // 4–5 diamonds of varying size that persist on the clean teeth, twinkling
+    // by scale + alpha. The central band keeps them on teeth, not gums.
+    _startToothSparkles(p) {
+        if (!p._toothAfter || p._toothSparkles?.length) return;
+        this._ensureSparkleTexture();
+        p._toothSparkles = [];
+
+        const count = 5;
+        const bandTop = p._toothTop + p._toothDispH * 0.28;
+        const bandH   = p._toothDispH * 0.44;
+        const padX    = p._toothDispW * 0.10;
+        for (let i = 0; i < count; i++) {
+            const sx   = p._toothLeft + padX + Math.random() * (p._toothDispW - padX * 2);
+            const sy   = bandTop + Math.random() * bandH;
+            const size = (9 + Math.random() * 12) * (this.platformScale || 1);
+            const gem = this.add.image(sx, sy, 'tooth_sparkle')
+                .setDisplaySize(size, size)   // sets scale = size / 64 (texture is 64px)
+                .setDepth(4.6)
+                .setBlendMode(Phaser.BlendModes.ADD)
+                .setAlpha(0);
+            const fullScale = gem.scale;      // full twinkle size
+            gem.setScale(fullScale * 0.2);    // start tiny; scaling up is the twinkle
+            p._toothSparkles.push(gem);
+
+            this.tweens.add({
+                targets: gem,
+                alpha: { from: 0, to: 0.95 },
+                scale: { from: fullScale * 0.2, to: fullScale },
+                duration: 480 + Math.random() * 360,
+                ease: 'Sine.easeInOut',
+                yoyo: true,
+                repeat: -1,
+                repeatDelay: 250 + Math.random() * 800,
+                delay: Math.random() * 700,
+            });
+        }
+    }
+
     loadGadgets(gadgetData) {
         this.clearGadgets();
         this.gadgetAnimationsComplete = false; // Reset flag for new level
@@ -971,6 +1176,46 @@ console.log(
             p._gadgetOriginY      = gadgetY;
             p._gadgetDisplayWidth = gadgetDisplayWidth;
             p._gadgetDisplayHeight= gadgetDisplayHeight;
+
+            // ── Tooth-cleaning display (toothbrush level only) ─────────────────
+            if (gadgetData.name === P.TOOTH_GADGET_NAME
+                && this.textures.exists('tooth_before')
+                && this.textures.exists('tooth_after')) {
+                const tSize = this._getAspectFitSize(
+                    this.textures.get('tooth_after'),
+                    p.toothAreaWidth, p.toothAreaHeight
+                );
+                const tDispW = tSize.width;
+                const tDispH = tSize.height;
+                const tx = p.toothAreaX;
+                const ty = p.toothAreaY;
+
+                const toothBefore = this.add.image(tx, ty, 'tooth_before')
+                    .setDisplaySize(tDispW, tDispH).setDepth(4);
+                const toothAfter  = this.add.image(tx, ty, 'tooth_after')
+                    .setDisplaySize(tDispW, tDispH).setDepth(4);
+
+                // Off-screen graphics drives the left→right reveal of the clean teeth
+                const maskGfx = this.make.graphics({ add: false });
+                toothAfter.setMask(maskGfx.createGeometryMask());
+
+                p._toothBefore  = toothBefore;
+                p._toothAfter   = toothAfter;
+                p._toothMaskGfx = maskGfx;
+                p._toothLeft    = tx - tDispW / 2;
+                p._toothTop     = ty - tDispH / 2;
+                p._toothDispW   = tDispW;
+                p._toothDispH   = tDispH;
+                p._toothProgress = 0;
+                p._toothTween    = null;
+                p._toothSweep    = null;
+                p._toothSparkles = [];
+                p._toothBrushFx  = [];
+                p._toothEdgeProfile = this._makeToothEdgeProfile(tDispW);
+
+                this._drawToothMask(p, 0);   // start fully stained, no tween
+            }
+
             p._shakeActive        = false;
             p._pulseActive        = false;
             p.smokeTimer          = null;
@@ -1211,13 +1456,25 @@ console.log(
 
             if (p.gadgetSprite) this.tweens.killTweensOf(p.gadgetSprite);
             if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
+            if (p._toothTween) { p._toothTween.remove(); p._toothTween = null; }
+            for (const o of (p._toothSparkles || []).concat(p._toothBrushFx || [])) {
+                if (o && o.scene) { this.tweens.killTweensOf(o); o.destroy(); }
+            }
+            p._toothSparkles = [];
+            p._toothBrushFx  = [];
+            p._toothSweep    = null;
+            p._toothEdgeProfile = null;
+            p._toothProgress = 0;
+            if (p._toothAfter) p._toothAfter.clearMask();
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
              p.meterBg, p.meterNeedle, p.meterPivot,
-             p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect]
+             p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect,
+             p._toothBefore, p._toothAfter, p._toothMaskGfx]
                 .forEach(o => { if (o) o.destroy(); });
             p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText =
             p.meterBg = p.meterNeedle = p.meterPivot = null;
             p.wireGraphics = p.socketSprite = p.plugSprite = p._debugRect = null;
+            p._toothBefore = p._toothAfter = p._toothMaskGfx = null;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
             p._shakeActive = false;
@@ -1335,6 +1592,7 @@ console.log(
             // Per-gadget charge effect (e.g. bulb glow), driven by progress 0..1
             const fxProgress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
             p._chargeEffect.onProgress(this, p, fxProgress, p._chargeEffectParams);
+            this._updateToothMask(p, fxProgress);
 
             // Check if we've reached or exceeded capacity
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {

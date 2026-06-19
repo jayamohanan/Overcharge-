@@ -172,7 +172,7 @@ var CONFIG = {
         STRIPE_ALPHA: 0.9,
 
         // ── Battery slot ──────────────────────────────────────────────────────
-        SLOT_PADDING_FROM_LEFT: 80,    // padding from stripe left edge to slot left edge (px)
+        SLOT_PADDING_FROM_LEFT: 40,    // padding from stripe left edge to slot left edge (px)
         SLOT_SIZE: 130,                // slot square size (px)
         SLOT_RADIUS: 15,               // corner radius (px)
         SLOT_ABOVE_STRIPE: 14,         // gap (px) between slot bottom and stripe top
@@ -189,14 +189,23 @@ var CONFIG = {
         WIRE_COLOR: 0x46464a,          // wire color
 
         // ── Debug rect (max gadget area) ──────────────────────────────────────
-        DEBUG_RECT_PADDING_FROM_SLOT: 160, // padding from slot right edge to debug rect left edge (px)
+        DEBUG_RECT_PADDING_FROM_SLOT: 110, // padding from slot right edge to debug rect left edge (px)
         DEBUG_RECT_PADDING_FROM_STRIPE: 14, // padding from stripe top to debug rect bottom (px)
-        DEBUG_RECT_WIDTH: 240,         // max width for gadget display area (px)
-        DEBUG_RECT_ASPECT_RATIO: 3/2,  // width:height ratio — height = WIDTH / RATIO (3:2 = 180×120)
+        DEBUG_RECT_WIDTH: 170,         // max width for gadget display area (px)
+        DEBUG_RECT_ASPECT_RATIO: 3/2,  // width:height ratio — height = WIDTH / RATIO (3:2 = 170×113)
         DEBUG_RECT_SHOW: false,        // show semi-transparent rect for max gadget area
         DEBUG_RECT_COLOR: 0xFF00FF,    // debug rect color (magenta)
         DEBUG_RECT_ALPHA: 0.1,         // debug rect transparency (0-1)
-        
+
+        // ── Tooth-cleaning display (toothbrush level only) ────────────────────
+        // Shown to the right of the gadget; tooth_after wipes over tooth_before
+        // left→right as the gadget charges 0 → capacity.
+        TOOTH_GADGET_NAME: 'brush',    // which gadget name triggers the tooth display
+        TOOTH_AREA_WIDTH: 200,         // max width for tooth display area (px)
+        TOOTH_AREA_ASPECT_RATIO: 2.5,  // width:height ratio — height = WIDTH / RATIO
+        TOOTH_PADDING_FROM_GADGET: 30, // gap from gadget right edge to tooth left edge (px)
+        TOOTH_Y_OFFSET: 0,             // vertical nudge for tooth area centre (px)
+
         // ── Capacity text (above gadget) ───────────────────────────────────────
         CAPACITY_TEXT_GAP: 8,          // gap (px) between capacity text bottom and gadget top
         CAPACITY_TEXT_SIZE: '20px',    // font size for capacity remaining text
@@ -380,7 +389,8 @@ function getBatteryIconLevel(level) {
 //
 // Platform/Charger System:
 //   • Charger slot (battery holder):   130 × 130 px  (PLATFORM.SLOT_SIZE) — same as grid cell
-//   • Debug rect (max gadget area):    180 × 120 px  (PLATFORM.DEBUG_RECT_WIDTH × WIDTH/ASPECT_RATIO, 3:2)
+//   • Debug rect (max gadget area):    170 × 113 px  (PLATFORM.DEBUG_RECT_WIDTH × WIDTH/ASPECT_RATIO, 3:2)
+//   • Tooth area (toothbrush level):   200 × 80 px   (PLATFORM.TOOTH_AREA_WIDTH × WIDTH/ASPECT_RATIO, 2.5:1)
 //   • Gadget sprite (within debug):    auto-sized    (aspect ratio preserved, centered horizontally, touching bottom)
 //   • Socket (on slot):                 40 × 40 px   (PLATFORM.SOCKET_SIZE)
 //   • Plug (on wire):                   28 × 28 px   (PLATFORM.PLUG_SIZE)
