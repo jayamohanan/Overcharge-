@@ -10,10 +10,15 @@
  * - Currently supports 64 levels
  * 
  * GADGET SPRITES:
- * - GADGET_SPRITES: Array of gadget sprite definitions
+ * - GADGET_SPRITES: Array of gadget sprite definitions (ORDERLESS).
  * - Each entry has: name, normal_sprite, burnedout_sprite, connection_height, connection_left_padding
- * - Reorder sprites freely without affecting capacity values
- * - Add more sprites by appending to the array
+ * - The order of this array does NOT matter — gadgets are looked up by name.
+ * - Add more gadgets by appending; edit a gadget's data in one place only.
+ *
+ * LEVEL ORDER:
+ * - GADGET_LEVEL_ORDER: Array of gadget NAMES only — defines which gadget appears
+ *   at each level (index 0 = level 1, index 1 = level 2, ...). Cycles past the end.
+ * - Rearrange / swap levels here freely without touching the gadget data above.
  * 
  * IMPORTANT: Capacity values are SEPARATE from gadget appearance
  * - Capacity values are always determined by the level, not by which sprite is shown
@@ -219,6 +224,37 @@ var GADGET_SPRITES = [
 ];
 
 // ============================================================
+// LEVEL ORDER (gadget names only)
+// ============================================================
+// Defines which gadget appears at each level. Index 0 = level 1, etc.
+// Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
+// Cycles back to the start once levels run past the end of this list.
+var GADGET_LEVEL_ORDER = [
+        "bulb",
+    "bluetooth_speaker",
+
+    "brush",
+    "radio",
+    "phone",
+    "laptop",
+    "aircooler",
+    "desktop",
+    "fridge",
+    "mixi",
+    "washing_machine",
+    "cooktop",
+    "ac",
+    "geyser",
+    "car",
+];
+
+// Name → sprite-definition lookup, built once from the orderless GADGET_SPRITES.
+var GADGET_SPRITES_BY_NAME = GADGET_SPRITES.reduce((map, sprite) => {
+    map[sprite.name] = sprite;
+    return map;
+}, {});
+
+// ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 
@@ -241,23 +277,33 @@ function getHighestGadgetLevel() {
 }
 
 /**
- * Get a gadget sprite definition by index
- * @param {number} index - The gadget index (0-based)
+ * Get a gadget sprite definition by name
+ * @param {string} name - The gadget name (e.g. "bulb")
  * @returns {Object|null} Gadget sprite object or null if not found
  */
-function getGadgetSprite(index) {
-    return GADGET_SPRITES[index] || null;
+function getGadgetSpriteByName(name) {
+    return GADGET_SPRITES_BY_NAME[name] || null;
 }
 
 /**
- * Get gadget sprite for a level (cycles through available sprites)
+ * Get a gadget sprite definition by index into the level order
+ * @param {number} index - The 0-based level-order index
+ * @returns {Object|null} Gadget sprite object or null if not found
+ */
+function getGadgetSprite(index) {
+    const name = GADGET_LEVEL_ORDER[index];
+    return name ? getGadgetSpriteByName(name) : null;
+}
+
+/**
+ * Get gadget sprite for a level (cycles through the level order)
  * @param {number} level - The level number
  * @returns {Object|null} Gadget sprite object
  */
 function getGadgetSpriteForLevel(level) {
-    if (GADGET_SPRITES.length === 0) return null;
-    const index = (level - 1) % GADGET_SPRITES.length;
-    return GADGET_SPRITES[index];
+    if (GADGET_LEVEL_ORDER.length === 0) return null;
+    const index = (level - 1) % GADGET_LEVEL_ORDER.length;
+    return getGadgetSpriteByName(GADGET_LEVEL_ORDER[index]);
 }
 
 /**

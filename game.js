@@ -384,16 +384,19 @@ console.log(
             repeat: 0
         });
 
-        // Load gadget data from gadgetData.js
-        if (typeof GADGET_SPRITES !== 'undefined' && GADGET_SPRITES) {
-            this.gadgetsData = GADGET_SPRITES.map((sprite, index) => {
+        // Load gadget data from gadgetData.js — level order comes from
+        // GADGET_LEVEL_ORDER (names only); each name resolves to its sprite data.
+        if (typeof GADGET_LEVEL_ORDER !== 'undefined' && GADGET_LEVEL_ORDER) {
+            this.gadgetsData = GADGET_LEVEL_ORDER.map((name, index) => {
                 const level = index + 1;
+                const sprite = getGadgetSpriteByName(name);
+                if (!sprite) console.warn(`GADGET_LEVEL_ORDER: unknown gadget "${name}" at level ${level}`);
                 const capacity = getGadgetCapacity(level) || [200, 250, 300];
                 return {
                     ...sprite,
                     capacity: capacity
                 };
-            });
+            }).filter(g => g.name);
         } else {
             this.gadgetsData = [];
         }
