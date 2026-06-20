@@ -512,7 +512,7 @@ console.log(
                 capTextGap, capFontSize,
                 gadgetSprite: null,
                 gadgetCapacity: 0, gadgetCurrentCharge: 0,
-                gadgetCapacityText: null, gadgetChargeText: null,
+                gadgetCapacityText: null, gadgetChargeText: null, gadgetNameText: null,
                 isDefeated: false,
                 smokePuffs: [],
                 explosionEffects: [],
@@ -1169,6 +1169,29 @@ console.log(
             p.gadgetCurrentCharge = 0;
             p.gadgetCapacityText  = capText;
             p.gadgetChargeText    = null;
+            p.gadgetNameText      = null;
+
+            // Gadget name shown once, above the top platform's charge-remaining value
+            // (all gadgets in a level are identical, so a single label suffices).
+            if (i === 0) {
+                const nameLabel = gadgetData.name
+                    .split('_')
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                    .join(' ');
+                p.gadgetNameText = this.add.text(
+                    gadgetX,
+                    capText.y - capText.height - p.capTextGap * 0.5,
+                    nameLabel,
+                    {
+                        fontSize: p.capFontSize,
+                        fontFamily: CONFIG.FONT_FAMILY,
+                        color: '#000000',
+                        fontStyle: 'bold',
+                        stroke: '#FFFFFF',
+                        strokeThickness: 3,
+                    }
+                ).setOrigin(0.5, 1).setDepth(5);
+            }
             p.isDefeated          = false;
             p.reachedZeroCapacity = false;
             p._gadgetName         = gadgetData.name;
@@ -1466,12 +1489,12 @@ console.log(
             p._toothEdgeProfile = null;
             p._toothProgress = 0;
             if (p._toothAfter) p._toothAfter.clearMask();
-            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText,
+            [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText, p.gadgetNameText,
              p.meterBg, p.meterNeedle, p.meterPivot,
              p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect,
              p._toothBefore, p._toothAfter, p._toothMaskGfx]
                 .forEach(o => { if (o) o.destroy(); });
-            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText =
+            p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText = p.gadgetNameText =
             p.meterBg = p.meterNeedle = p.meterPivot = null;
             p.wireGraphics = p.socketSprite = p.plugSprite = p._debugRect = null;
             p._toothBefore = p._toothAfter = p._toothMaskGfx = null;
@@ -2521,14 +2544,14 @@ console.log(
 
         // Fade capacity text and meter (smoke keeps running after burnout)
         if (p.meterNeedle) this.tweens.killTweensOf(p.meterNeedle);
-        const toFade = [p.gadgetCapacityText, p.gadgetChargeText,
+        const toFade = [p.gadgetCapacityText, p.gadgetChargeText, p.gadgetNameText,
                         p.meterBg, p.meterNeedle, p.meterPivot].filter(Boolean);
         if (toFade.length) {
             this.tweens.add({
                 targets: toFade, alpha: 0, duration: 350,
                 onComplete: () => {
                     toFade.forEach(o => o.destroy());
-                    p.gadgetCapacityText = p.gadgetChargeText =
+                    p.gadgetCapacityText = p.gadgetChargeText = p.gadgetNameText =
                     p.meterBg = p.meterNeedle = p.meterPivot = null;
                 },
             });
