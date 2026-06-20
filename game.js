@@ -1091,6 +1091,107 @@ console.log(
         }
     }
 
+    // Generate reusable white music-note glyph textures once (tinted at spawn).
+    _ensureMusicNoteTextures() {
+        if (this.textures.exists('music_note')) return;
+
+        // Single eighth note
+        let g = this.make.graphics({ add: false });
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(16, 50, 12);             // head
+        g.fillRect(25, 12, 5, 40);            // stem
+        g.fillTriangle(30, 12, 30, 32, 46, 22); // flag
+        g.generateTexture('music_note', 52, 64);
+        g.destroy();
+
+        // Double (beamed) note
+        g = this.make.graphics({ add: false });
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(14, 50, 11);             // head 1
+        g.fillCircle(46, 44, 11);             // head 2
+        g.fillRect(22, 16, 5, 36);            // stem 1
+        g.fillRect(54, 10, 5, 36);            // stem 2
+        g.fillTriangle(22, 10, 59, 4, 59, 13);   // beam (top)
+        g.fillTriangle(22, 10, 22, 19, 59, 13);  // beam (bottom)
+        g.generateTexture('music_note2', 64, 64);
+        g.destroy();
+    }
+
+    // Begin continuous music-note emission for the bluetooth-speaker gadget.
+    _startSpeakerNotes(p) {
+        const P = CONFIG.PLATFORM;
+        this._ensureMusicNoteTextures();
+        p._speakerNotes = [];
+        p._noteTimer = this.time.addEvent({
+            delay: P.SPEAKER_NOTE_INTERVAL,
+            loop: true,
+            callback: () => this._emitSpeakerNotes(p),
+        });
+    }
+
+    // One emission tick: spawn a charge-scaled number/size of drifting notes.
+    _emitSpeakerNotes(p) {
+        if (!p.gadgetSprite || p.isDefeated || p.reachedZeroCapacity) return;
+        const P    = CONFIG.PLATFORM;
+        const prog = Math.min(p.gadgetCurrentCharge / Math.max(1, p.gadgetCapacity), 1);
+
+        // Average notes/tick grows from MIN_RATE → MAX_RATE with charge;
+        // the fractional part becomes a probabilistic extra note.
+        const rate = P.SPEAKER_NOTE_MIN_RATE + (P.SPEAKER_NOTE_MAX_RATE - P.SPEAKER_NOTE_MIN_RATE) * prog;
+        let n = Math.floor(rate);
+        if (Math.random() < rate - n) n++;
+        for (let k = 0; k < n; k++) this._spawnSpeakerNote(p, prog);
+    }
+
+    _spawnSpeakerNote(p, prog) {
+        const P     = CONFIG.PLATFORM;
+        const scale = this.platformScale || 1;
+        const w = p._gadgetDisplayWidth, h = p._gadgetDisplayHeight;
+
+        // Emit from around the speaker centre, slight random offset.
+        const x0 = p._gadgetOriginX + w * (Math.random() - 0.5) * 0.4;
+        const y0 = p._gadgetOriginY + h * (Math.random() - 0.5) * 0.4;
+
+        // Size: small at low charge, larger as it fills (0.65× → 1.35×).
+        const size = P.SPEAKER_NOTE_BASE_SIZE * (0.65 + 0.7 * prog)
+                   * (0.85 + Math.random() * 0.3) * scale;
+
+        const key   = Math.random() < 0.5 ? 'music_note' : 'music_note2';
+        const tints = [0xfff2a8, 0xa8e0ff, 0xffc2e0, 0xc6ffd0, 0xd9c2ff];
+        const note  = this.add.image(x0, y0, key)
+            .setDisplaySize(size, size * 1.05)
+            .setDepth(3.7)                       // below the gadget (depth 4)
+            .setTint(tints[(Math.random() * tints.length) | 0])
+            .setAlpha(0)
+            .setAngle((Math.random() - 0.5) * 30);
+        p._speakerNotes.push(note);
+
+        // Drift outward in a random direction; distance grows a little with charge.
+        const dir  = Math.random() * Math.PI * 2;
+        const dist = (50 + Math.random() * 50 + prog * 45) * scale;
+        const dur  = 1300 + Math.random() * 700;
+
+        // Quick fade-in, slow fade-out over the drift.
+        this.tweens.add({ targets: note, alpha: 0.95, duration: dur * 0.2 });
+        this.tweens.add({
+            targets: note,
+            x: x0 + Math.cos(dir) * dist,
+            y: y0 + Math.sin(dir) * dist,
+            angle: note.angle + (Math.random() - 0.5) * 50,
+            duration: dur,
+            ease: 'Sine.easeOut',
+            onComplete: () => {
+                const idx = p._speakerNotes.indexOf(note);
+                if (idx >= 0) p._speakerNotes.splice(idx, 1);
+                note.destroy();
+            },
+        });
+        // Fade out over the second half of the drift.
+        this.tweens.add({
+            targets: note, alpha: 0, duration: dur * 0.5, delay: dur * 0.5,
+        });
+    }
+
     loadGadgets(gadgetData) {
         this.clearGadgets();
         this.gadgetAnimationsComplete = false; // Reset flag for new level
@@ -1237,6 +1338,11 @@ console.log(
                 p._toothEdgeProfile = this._makeToothEdgeProfile(tDispW);
 
                 this._drawToothMask(p, 0);   // start fully stained, no tween
+            }
+
+            // ── Music notes (bluetooth speaker level only) ─────────────────────
+            if (gadgetData.name === P.SPEAKER_GADGET_NAME) {
+                this._startSpeakerNotes(p);
             }
 
             p._shakeActive        = false;
@@ -1489,6 +1595,13 @@ console.log(
             p._toothEdgeProfile = null;
             p._toothProgress = 0;
             if (p._toothAfter) p._toothAfter.clearMask();
+
+            // Music notes (speaker gadget)
+            if (p._noteTimer) { p._noteTimer.remove(false); p._noteTimer = null; }
+            for (const o of (p._speakerNotes || [])) {
+                if (o && o.scene) { this.tweens.killTweensOf(o); o.destroy(); }
+            }
+            p._speakerNotes = [];
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText, p.gadgetNameText,
              p.meterBg, p.meterNeedle, p.meterPivot,
              p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect,

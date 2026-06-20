@@ -206,6 +206,15 @@ var CONFIG = {
         TOOTH_PADDING_FROM_GADGET: 30, // gap from gadget right edge to tooth left edge (px)
         TOOTH_Y_OFFSET: 0,             // vertical nudge for tooth area centre (px)
 
+        // ── Music notes (bluetooth speaker level only) ────────────────────────
+        // Notes drift up-right from the speaker; both size and emission rate
+        // scale with charge progress (small/few → big/many).
+        SPEAKER_GADGET_NAME: 'bluetooth_speaker',
+        SPEAKER_NOTE_INTERVAL: 300,    // ms between emission ticks
+        SPEAKER_NOTE_BASE_SIZE: 16,    // px note size at full charge (before platform scale)
+        SPEAKER_NOTE_MIN_RATE: 0.4,    // avg notes per tick at 0% charge
+        SPEAKER_NOTE_MAX_RATE: 3.0,    // avg notes per tick at 100% charge
+
         // ── Capacity text (above gadget) ───────────────────────────────────────
         CAPACITY_TEXT_GAP: 8,          // gap (px) between capacity text bottom and gadget top
         CAPACITY_TEXT_SIZE: '20px',    // font size for capacity remaining text

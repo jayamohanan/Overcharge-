@@ -100,6 +100,13 @@ var GADGET_REWARD = {
 // ============================================================
 var GADGET_SPRITES = [
      {
+        "name": "bluetooth_speaker",
+        "normal_sprite": "bluetooth_speaker.png",
+        "burnedout_sprite": "bluetooth_speaker_burnedout.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
+     {
         "name": "bulb",
         "normal_sprite": "bulb.png",
         "burnedout_sprite": "bulb_burnedout.png",
@@ -123,13 +130,7 @@ var GADGET_SPRITES = [
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
-    {
-        "name": "bluetooth_speaker",
-        "normal_sprite": "bluetooth_speaker.png",
-        "burnedout_sprite": "bluetooth_speaker_burnedout.png",
-        "connection_height": 0.3,
-        "connection_left_padding": 0.5
-    },
+   
     
     {
         "name": "radio",
