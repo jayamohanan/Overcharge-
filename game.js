@@ -306,6 +306,11 @@ class GameScene extends Phaser.Scene {
         // Tooth-cleaning art for the toothbrush level (not part of GADGET_SPRITES)
         this.load.image('tooth_before', 'graphics/gadgets/tooth_before.png');
         this.load.image('tooth_after',  'graphics/gadgets/tooth_after.png');
+
+        // Chicken-cooking sprite sheet for the cooktop level (8 frames, 2x4 grid)
+        this.load.spritesheet('chicken_cooking', 'graphics/gadgets/chicken_cooking.png', {
+            frameWidth: 364, frameHeight: 360,
+        });
     }
 
     // ================================================================
@@ -1155,9 +1160,13 @@ console.log(
         const x0 = p._gadgetOriginX + w * (Math.random() - 0.5) * 0.4;
         const y0 = p._gadgetOriginY + h * (Math.random() - 0.5) * 0.4;
 
-        // Size: small at low charge, larger as it fills (0.65× → 1.35×).
-        const size = P.SPEAKER_NOTE_BASE_SIZE * (0.65 + 0.7 * prog)
-                   * (0.85 + Math.random() * 0.3) * scale;
+        // Size: small at low charge, doubled at full (0.65× → 2.70×), with a
+        // wide per-note radius variation for a more scattered, lively look.
+        const size = P.SPEAKER_NOTE_BASE_SIZE * (0.65 + 2.05 * prog)
+                   * (0.7 + Math.random() * 0.7) * scale;
+
+        // Randomised peak opacity for more transparency variation.
+        const peakAlpha = 0.45 + Math.random() * 0.55;   // 0.45 → 1.0
 
         const key   = Math.random() < 0.5 ? 'music_note' : 'music_note2';
         const tints = [0xfff2a8, 0xa8e0ff, 0xffc2e0, 0xc6ffd0, 0xd9c2ff];
@@ -1174,8 +1183,8 @@ console.log(
         const dist = (50 + Math.random() * 50 + prog * 45) * scale;
         const dur  = 1300 + Math.random() * 700;
 
-        // Quick fade-in, slow fade-out over the drift.
-        this.tweens.add({ targets: note, alpha: 0.95, duration: dur * 0.2 });
+        // Quick fade-in to a randomised peak, slow fade-out over the drift.
+        this.tweens.add({ targets: note, alpha: peakAlpha, duration: dur * 0.2 });
         this.tweens.add({
             targets: note,
             x: x0 + Math.cos(dir) * dist,
@@ -1193,6 +1202,28 @@ console.log(
         this.tweens.add({
             targets: note, alpha: 0, duration: dur * 0.5, delay: dur * 0.5,
         });
+    }
+
+    // Cross-fade the chicken between cooking stages to match charge progress 0..1.
+    // Maps progress across the (n-1) gaps between frames and dissolves the base
+    // frame into the next one by its fractional part, for smooth cooking.
+    _updateChickenFrame(p, progress) {
+        if (!p._chicken) return;
+        const n = p._chickenFrames;
+        const t = Math.max(0, Math.min(1, progress)) * (n - 1); // 0 .. n-1 continuous
+        const base = Math.min(n - 1, Math.floor(t));
+        const next = Math.min(n - 1, base + 1);
+        const frac = t - base;                  // 0 → just-entered base, 1 → fully next
+
+        if (base !== p._chickenFrame) {
+            p._chickenFrame = base;
+            p._chicken.setFrame(base);
+        }
+        if (next !== p._chickenNextFrame) {
+            p._chickenNextFrame = next;
+            p._chickenNext.setFrame(next);
+        }
+        p._chickenNext.setAlpha(frac);          // dissolve base → next
     }
 
     loadGadgets(gadgetData) {
@@ -1346,6 +1377,30 @@ console.log(
             // ── Music notes (bluetooth speaker level only) ─────────────────────
             if (gadgetData.name === P.SPEAKER_GADGET_NAME) {
                 this._startSpeakerNotes(p);
+            }
+
+            // ── Chicken cooking (induction cooktop level only) ─────────────────
+            // Centred over the cooktop; frame steps raw → cooked as it charges.
+            p._chicken = null;
+            if (gadgetData.name === P.COOKTOP_GADGET_NAME
+                && this.textures.exists('chicken_cooking')) {
+                const cw = gadgetDisplayWidth * P.CHICKEN_SIZE_SCALE;
+                const ch = cw * (360 / 364);            // preserve frame aspect (364x360)
+                const yOff = (this.platformScale || 1) * P.CHICKEN_Y_OFFSET;
+                // Two stacked sprites: base shows the current frame, overlay shows
+                // the next frame and is alpha-blended in to cross-fade between stages.
+                const chicken = this.add.sprite(gadgetX, gadgetY + yOff, 'chicken_cooking', 0)
+                    .setDisplaySize(cw, ch)
+                    .setDepth(4.2);                     // above the cooktop sprite (depth 4)
+                const chickenNext = this.add.sprite(gadgetX, gadgetY + yOff, 'chicken_cooking', 0)
+                    .setDisplaySize(cw, ch)
+                    .setDepth(4.21)
+                    .setAlpha(0);
+                p._chicken      = chicken;
+                p._chickenNext  = chickenNext;
+                p._chickenFrames = P.CHICKEN_FRAME_COUNT;
+                p._chickenFrame  = -1;                  // force first update to apply
+                p._chickenNextFrame = -1;
             }
 
             p._shakeActive        = false;
@@ -1608,12 +1663,13 @@ console.log(
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText, p.gadgetNameText,
              p.meterBg, p.meterNeedle, p.meterPivot,
              p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect,
-             p._toothBefore, p._toothAfter, p._toothMaskGfx]
+             p._toothBefore, p._toothAfter, p._toothMaskGfx, p._chicken, p._chickenNext]
                 .forEach(o => { if (o) o.destroy(); });
             p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText = p.gadgetNameText =
             p.meterBg = p.meterNeedle = p.meterPivot = null;
             p.wireGraphics = p.socketSprite = p.plugSprite = p._debugRect = null;
             p._toothBefore = p._toothAfter = p._toothMaskGfx = null;
+            p._chicken = p._chickenNext = null;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
             p._shakeActive = false;
@@ -1732,6 +1788,7 @@ console.log(
             const fxProgress = Math.min(p.gadgetCurrentCharge / p.gadgetCapacity, 1);
             p._chargeEffect.onProgress(this, p, fxProgress, p._chargeEffectParams);
             this._updateToothMask(p, fxProgress);
+            this._updateChickenFrame(p, fxProgress);
 
             // Check if we've reached or exceeded capacity
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
@@ -3743,21 +3800,19 @@ console.log(
         const tX  = this.coinIcon.x, tY = this.coinIcon.y;
         let done  = 0;
         
-        // Spawn all coins immediately at the gadget position behind the sprite
+        // Spawn all coins immediately at the gadget position, on the top layer
+        // (above gadget + secondary sprites like the chicken) — treated as UI.
         const coins = [];
         for (let i = 0; i < C.COIN_COUNT; i++) {
             const coin = this.add.image(startX, startY - i * C.INITIAL_STACK_OFFSET, 'coin')
                 .setDisplaySize(this.rewardCoinSize, this.rewardCoinSize)
-                .setDepth(2.5 + i * 0.01);  // Behind gadget sprite (which is at depth 4)
+                .setDepth(100 + i);  // Top layer, above all gadget art
             coins.push(coin);
         }
-        
+
         // Wait for sprite to disappear + additional delay, then animate coins to icon
         this.time.delayedCall(delayBeforeFly, () => {
             coins.forEach((coin, i) => {
-                // Set coins to high depth so they fly over everything
-                coin.setDepth(100 + i);
-                
                 const dur = C.TOP_SPEED_DURATION * (1 + i * C.SPEED_VARIATION / (C.COIN_COUNT - 1));
                 this.time.delayedCall(i * C.STAGGER_DELAY, () => {
                     if (!coin.scene) return; // Already destroyed

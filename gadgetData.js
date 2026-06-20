@@ -230,8 +230,10 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
-        "bulb",
     "bluetooth_speaker",
+    "cooktop",
+        "bulb",
+    
 
     "brush",
     "radio",

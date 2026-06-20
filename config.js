@@ -215,6 +215,14 @@ var CONFIG = {
         SPEAKER_NOTE_MIN_RATE: 0.4,    // avg notes per tick at 0% charge
         SPEAKER_NOTE_MAX_RATE: 3.0,    // avg notes per tick at 100% charge
 
+        // ── Chicken cooking (induction cooktop level only) ────────────────────
+        // 8-frame sprite sheet shown centred over the cooktop; the frame steps
+        // raw → cooked (frame 0 → 7) as the gadget charges 0 → capacity.
+        COOKTOP_GADGET_NAME: 'cooktop',
+        CHICKEN_FRAME_COUNT: 8,        // frames in chicken_cooking sheet
+        CHICKEN_SIZE_SCALE: 0.7,       // chicken display width = cooktop width * this
+        CHICKEN_Y_OFFSET: -25,         // vertical nudge from cooktop centre (px; negative = up, positive = down)
+
         // ── Capacity text (above gadget) ───────────────────────────────────────
         CAPACITY_TEXT_GAP: 8,          // gap (px) between capacity text bottom and gadget top
         CAPACITY_TEXT_SIZE: '20px',    // font size for capacity remaining text
