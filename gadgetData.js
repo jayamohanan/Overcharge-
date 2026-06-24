@@ -221,6 +221,17 @@ var GADGET_SPRITES = [
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
+    {
+        // Animated sprite sheet (704x384, 8 frames in a 4x2 grid, 176x192 each).
+        // Loaded as a spritesheet in preload; the gadget sprite is an animated
+        // Sprite whose loop speed scales with charge. The PNG paths below are only
+        // placeholders for the generic loader (the spritesheet drives the visual).
+        "name": "sewing_machine",
+        "normal_sprite": "sewing_machine.png",
+        "burnedout_sprite": "sewing_machine.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5
+    },
 ];
 
 // ============================================================
@@ -230,6 +241,7 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+    "sewing_machine",
     "bluetooth_speaker",
     "cooktop",
         "bulb",

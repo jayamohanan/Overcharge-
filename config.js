@@ -223,6 +223,25 @@ var CONFIG = {
         CHICKEN_SIZE_SCALE: 0.7,       // chicken display width = cooktop width * this
         CHICKEN_Y_OFFSET: -25,         // vertical nudge from cooktop centre (px; negative = up, positive = down)
 
+        // ── Sewing machine (animated gadget) ──────────────────────────────────
+        // 8-frame sprite sheet (4x2, 176x192 each) used as the gadget itself.
+        // Idle = first frame; loop speed ramps from MIN → MAX fps as it charges.
+        SEWING_GADGET_NAME: 'sewing_machine',
+        SEWING_FRAME_W: 143,
+        SEWING_FRAME_H: 122,
+        SEWING_FRAME_COUNT: 8,
+        SEWING_BASE_FPS: 12,           // animation's base frame rate (timeScale multiplies this)
+        SEWING_MIN_FPS: 3,             // loop speed just after charging begins (~0% → slow stitching)
+        SEWING_MAX_FPS: 28,            // loop speed at full charge (fast stitching)
+
+        // T-shirt cloth shown to the LEFT of the machine; revealed with an organic
+        // wavy stitching front as the gadget charges 0 → 1 (a needle glint + running
+        // stitch trail ride the reveal front).
+        TSHIRT_AREA_WIDTH: 120,        // max width for the cloth display area (px)
+        TSHIRT_AREA_ASPECT_RATIO: 1.0, // width:height of the cloth area (height = WIDTH / RATIO)
+        TSHIRT_PADDING_FROM_GADGET: 6, // gap (px) from machine left edge to cloth right edge
+        TSHIRT_Y_OFFSET: 0,            // vertical nudge from machine centre (px, +down)
+
         // ── Capacity text (above gadget) ───────────────────────────────────────
         CAPACITY_TEXT_GAP: 8,          // gap (px) between capacity text bottom and gadget top
         CAPACITY_TEXT_SIZE: '20px',    // font size for capacity remaining text

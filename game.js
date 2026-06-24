@@ -291,6 +291,11 @@ class GameScene extends Phaser.Scene {
         // Load gadget sprites from gadgetData.js
         if (typeof GADGET_SPRITES !== 'undefined' && GADGET_SPRITES) {
             GADGET_SPRITES.forEach(g => {
+                // The sewing machine has no single gadget sprite — it's driven by
+                // the 'sewing_machine' spritesheet (idle = first frame), so skip
+                // the static normal/burnedout image loads for it.
+                if (g.name === CONFIG.PLATFORM.SEWING_GADGET_NAME) return;
+
                 this.load.image(`gadget_${g.name}_normal`, `graphics/gadgets/${g.normal_sprite}`);
                 this.load.image(`gadget_${g.name}_burnedout`, `graphics/gadgets/${g.burnedout_sprite}`);
 
@@ -311,6 +316,15 @@ class GameScene extends Phaser.Scene {
         this.load.spritesheet('chicken_cooking', 'graphics/gadgets/chicken_cooking.png', {
             frameWidth: 364, frameHeight: 360,
         });
+
+        // Sewing-machine animated gadget sheet (8 frames, 4x2 grid, 143x122)
+        this.load.spritesheet('sewing_machine', 'graphics/gadgets/sewing_machine.png', {
+            frameWidth: 143, frameHeight: 122,
+        });
+
+        // T-shirt cloth shown to the left of the sewing machine; revealed with an
+        // organic wavy front as it charges. Feature self-skips until the file exists.
+        this.load.image('tshirt', 'graphics/gadgets/t-shirt.png');
     }
 
     // ================================================================
@@ -676,7 +690,9 @@ console.log(
         }
 
         // ── Shake (increases gradually, maximum at end) ─────────────────────────
-        if (!p._shakeActive) {
+        // Skipped for the sewing machine — a machine shouldn't slide side-to-side;
+        // its frame animation already conveys the rising tension.
+        if (!p._shakeActive && p._gadgetName !== P.SEWING_GADGET_NAME) {
             p._shakeActive = true;
             // Shake intensity: 0.75 at start → 5 at end (reduced by half)
             const shakeAmt = 0.75 + tensionProgress * 4.25;
@@ -1226,6 +1242,109 @@ console.log(
         p._chickenNext.setAlpha(frac);          // dissolve base → next
     }
 
+    // Drive the sewing-machine loop speed from charge progress 0..1.
+    // At ~0 it sits idle on the first frame; above that it loops, speeding
+    // up from MIN_FPS → MAX_FPS as the gadget fills.
+    _updateSewingSpeed(p, progress) {
+        if (!p._sewing) return;
+        const P    = CONFIG.PLATFORM;
+        const prog = Math.max(0, Math.min(1, progress));
+
+        if (prog <= 0.001) {
+            if (p._sewingPlaying) { p._sewing.anims.stop(); p._sewingPlaying = false; }
+            p._sewing.setFrame(0);
+            return;
+        }
+        if (!p._sewingPlaying) {
+            p._sewing.play('sewing_loop');
+            p._sewingPlaying = true;
+        }
+        const fps = P.SEWING_MIN_FPS + (P.SEWING_MAX_FPS - P.SEWING_MIN_FPS) * prog;
+        p._sewing.anims.timeScale = fps / P.SEWING_BASE_FPS;
+    }
+
+    // Reveal the t-shirt up to `progress` with an organic wavy front (left→right).
+    // Mirrors the tooth mask but for the cloth — the edge profile gives the wave.
+    _drawTshirtMask(p, progress) {
+        if (!p._tshirtMaskGfx) return;
+        const g    = p._tshirtMaskGfx;
+        const pr   = Math.max(0, Math.min(1, progress));
+        const left = p._tshirtLeft, top = p._tshirtTop, h = p._tshirtDispH, W = p._tshirtDispW;
+        g.clear();
+        if (pr <= 0) return;
+
+        const prof = p._tshirtEdgeProfile;
+        if (pr >= 0.999 || !prof) {             // fully sewn — solid fill, no slivers
+            g.fillStyle(0xffffff).fillRect(left, top, W, h);
+            return;
+        }
+        const w = pr * W;
+        const N = prof.length - 1;
+        g.fillStyle(0xffffff);
+        g.beginPath();
+        g.moveTo(left, top);
+        for (let i = 0; i <= N; i++) {
+            const y = top + (h * i) / N;
+            let x = left + w + prof[i];
+            x = Math.max(left, Math.min(left + W, x));
+            g.lineTo(x, y);
+        }
+        g.lineTo(left, top + h);
+        g.closePath();
+        g.fillPath();
+    }
+
+    // Running-stitch dashes laid down along a seam line up to the reveal front.
+    _drawTshirtSeam(p, progress) {
+        const g = p._tshirtSeamGfx;
+        if (!g) return;
+        g.clear();
+        const pr = Math.max(0, Math.min(1, progress));
+        if (pr <= 0) return;
+        const scale  = this.platformScale || 1;
+        const left   = p._tshirtLeft, W = p._tshirtDispW, H = p._tshirtDispH;
+        const seamY  = p._tshirtTop + H * 0.62;
+        const frontX = left + pr * W;
+        const dash   = Math.max(3, 6 * scale);
+        g.lineStyle(Math.max(1, 2 * scale), 0x37414d, 0.95);
+        for (let x = left + dash; x < frontX; x += dash * 2) {
+            g.beginPath();
+            g.moveTo(x, seamY);
+            g.lineTo(Math.min(x + dash, frontX), seamY);
+            g.strokePath();
+        }
+    }
+
+    _positionTshirtNeedle(p, progress) {
+        const n = p._tshirtNeedle;
+        if (!n) return;
+        const pr = Math.max(0, Math.min(1, progress));
+        if (pr <= 0 || pr >= 1) { n.setAlpha(0); return; }   // hide when idle or finished
+        n.x = p._tshirtLeft + pr * p._tshirtDispW;
+        n.y = p._tshirtTop + p._tshirtDispH * 0.62;
+        n.setAlpha(0.85);
+    }
+
+    // Smoothly animate the cloth reveal toward `target` progress (0..1).
+    _updateTshirt(p, target) {
+        if (!p._tshirtMaskGfx) return;
+        target = Math.max(0, Math.min(1, target));
+        if (p._tshirtTween) { p._tshirtTween.remove(); p._tshirtTween = null; }
+
+        const state = { v: p._tshirtProgress ?? 0 };
+        const apply = (v) => {
+            p._tshirtProgress = v;
+            this._drawTshirtMask(p, v);
+            this._drawTshirtSeam(p, v);
+            this._positionTshirtNeedle(p, v);
+        };
+        p._tshirtTween = this.tweens.add({
+            targets: state, v: target, duration: 700, ease: 'Sine.easeOut',
+            onUpdate: () => apply(state.v),
+            onComplete: () => { apply(target); p._tshirtTween = null; },
+        });
+    }
+
     loadGadgets(gadgetData) {
         this.clearGadgets();
         this.gadgetAnimationsComplete = false; // Reset flag for new level
@@ -1257,9 +1376,17 @@ console.log(
 
             // Calculate actual gadget display size within (scaled) debug rect bounds
             const normalKey = `gadget_${gadgetData.name}_normal`;
+            const isSewing = gadgetData.name === P.SEWING_GADGET_NAME
+                && this.textures.exists('sewing_machine');
             let gadgetDisplayWidth, gadgetDisplayHeight;
 
-            if (this.textures.exists(normalKey)) {
+            if (isSewing) {
+                // Size by a single frame (176x192), not the whole sheet.
+                const sc = Math.min(p.debugRectWidth / P.SEWING_FRAME_W,
+                                    p.debugRectHeight / P.SEWING_FRAME_H);
+                gadgetDisplayWidth  = P.SEWING_FRAME_W * sc;
+                gadgetDisplayHeight = P.SEWING_FRAME_H * sc;
+            } else if (this.textures.exists(normalKey)) {
                 const size = this._getAspectFitSize(
                     this.textures.get(normalKey),
                     p.debugRectWidth,
@@ -1291,11 +1418,14 @@ console.log(
                 }
             ).setOrigin(0.5, 1).setDepth(5);
 
-            // Create gadget sprite
-            const gadgetSprite = this.textures.exists(normalKey)
-                ? this.add.image(gadgetX, gadgetY, normalKey)
-                : this.add.rectangle(gadgetX, gadgetY, gadgetDisplayWidth, gadgetDisplayHeight, 0x888888);
-            
+            // Create gadget sprite — animated Sprite for the sewing machine,
+            // otherwise the usual static image (or a grey rect fallback).
+            const gadgetSprite = isSewing
+                ? this.add.sprite(gadgetX, gadgetY, 'sewing_machine', 0)
+                : this.textures.exists(normalKey)
+                    ? this.add.image(gadgetX, gadgetY, normalKey)
+                    : this.add.rectangle(gadgetX, gadgetY, gadgetDisplayWidth, gadgetDisplayHeight, 0x888888);
+
             gadgetSprite.setDisplaySize(gadgetDisplayWidth, gadgetDisplayHeight);
             gadgetSprite.setDepth(4);
 
@@ -1377,6 +1507,64 @@ console.log(
             // ── Music notes (bluetooth speaker level only) ─────────────────────
             if (gadgetData.name === P.SPEAKER_GADGET_NAME) {
                 this._startSpeakerNotes(p);
+            }
+
+            // ── Sewing machine (animated gadget) ───────────────────────────────
+            // Idle on frame 0; charge ramps the loop speed (see _updateSewingSpeed).
+            p._sewing = null;
+            if (isSewing) {
+                if (!this.anims.exists('sewing_loop')) {
+                    this.anims.create({
+                        key: 'sewing_loop',
+                        frames: this.anims.generateFrameNumbers('sewing_machine',
+                            { start: 0, end: P.SEWING_FRAME_COUNT - 1 }),
+                        frameRate: P.SEWING_BASE_FPS,
+                        repeat: -1,
+                    });
+                }
+                gadgetSprite.setFrame(0);   // idle pose until charging starts
+                p._sewing = gadgetSprite;
+                p._sewingPlaying = false;
+            }
+
+            // ── T-shirt cloth (sewing machine) ─────────────────────────────────
+            // Sits to the left of the machine and is revealed by an organic wavy
+            // front as it charges, with a needle glint + running-stitch trail.
+            p._tshirt = null;
+            if (isSewing && this.textures.exists('tshirt')) {
+                const scale  = this.platformScale || 1;
+                const areaW  = P.TSHIRT_AREA_WIDTH * scale;
+                const areaH  = areaW / P.TSHIRT_AREA_ASPECT_RATIO;
+                const fit    = this._getAspectFitSize(this.textures.get('tshirt'), areaW, areaH);
+                const tw = fit.width, th = fit.height;
+                const pad = P.TSHIRT_PADDING_FROM_GADGET * scale;
+                const cx  = gadgetX - gadgetDisplayWidth / 2 - pad - tw / 2;
+                const cy  = gadgetY + P.TSHIRT_Y_OFFSET * scale;
+
+                const shirt   = this.add.image(cx, cy, 'tshirt').setDisplaySize(tw, th).setDepth(4.0);
+                const maskGfx = this.make.graphics({ add: false });
+                shirt.setMask(maskGfx.createGeometryMask());
+
+                // Running-stitch trail + needle glint that ride the reveal front.
+                const seamGfx = this.add.graphics().setDepth(4.02);
+                const needle  = (this.textures.exists('glow')
+                        ? this.add.image(cx, cy, 'glow').setDisplaySize(th * 0.45, th * 0.45)
+                        : this.add.circle(cx, cy, th * 0.22, 0xffffff))
+                    .setDepth(4.03).setBlendMode(Phaser.BlendModes.ADD)
+                    .setTint(0xfff0b0).setAlpha(0);
+
+                p._tshirt          = shirt;
+                p._tshirtMaskGfx   = maskGfx;
+                p._tshirtSeamGfx   = seamGfx;
+                p._tshirtNeedle    = needle;
+                p._tshirtLeft      = cx - tw / 2;
+                p._tshirtTop       = cy - th / 2;
+                p._tshirtDispW     = tw;
+                p._tshirtDispH     = th;
+                p._tshirtProgress  = 0;
+                p._tshirtTween     = null;
+                p._tshirtEdgeProfile = this._makeToothEdgeProfile(tw); // reuse organic wave generator
+                this._drawTshirtMask(p, 0);
             }
 
             // ── Chicken cooking (induction cooktop level only) ─────────────────
@@ -1663,13 +1851,20 @@ console.log(
             [p.gadgetSprite, p.gadgetCapacityText, p.gadgetChargeText, p.gadgetNameText,
              p.meterBg, p.meterNeedle, p.meterPivot,
              p.wireGraphics, p.socketSprite, p.plugSprite, p._debugRect,
-             p._toothBefore, p._toothAfter, p._toothMaskGfx, p._chicken, p._chickenNext]
+             p._toothBefore, p._toothAfter, p._toothMaskGfx, p._chicken, p._chickenNext,
+             p._tshirt, p._tshirtMaskGfx, p._tshirtSeamGfx, p._tshirtNeedle]
                 .forEach(o => { if (o) o.destroy(); });
             p.gadgetSprite = p.gadgetCapacityText = p.gadgetChargeText = p.gadgetNameText =
             p.meterBg = p.meterNeedle = p.meterPivot = null;
             p.wireGraphics = p.socketSprite = p.plugSprite = p._debugRect = null;
             p._toothBefore = p._toothAfter = p._toothMaskGfx = null;
             p._chicken = p._chickenNext = null;
+            p._sewing = null;          // same object as gadgetSprite (already destroyed); anim auto-stops
+            p._sewingPlaying = false;
+            if (p._tshirtTween) { p._tshirtTween.remove(); p._tshirtTween = null; }
+            p._tshirt = p._tshirtMaskGfx = p._tshirtSeamGfx = p._tshirtNeedle = null;
+            p._tshirtEdgeProfile = null;
+            p._tshirtProgress = 0;
             p.gadgetCurrentCharge = 0;
             p.isDefeated = false;
             p._shakeActive = false;
@@ -1789,6 +1984,8 @@ console.log(
             p._chargeEffect.onProgress(this, p, fxProgress, p._chargeEffectParams);
             this._updateToothMask(p, fxProgress);
             this._updateChickenFrame(p, fxProgress);
+            this._updateSewingSpeed(p, fxProgress);
+            this._updateTshirt(p, fxProgress);
 
             // Check if we've reached or exceeded capacity
             if (p.gadgetCurrentCharge >= p.gadgetCapacity) {
