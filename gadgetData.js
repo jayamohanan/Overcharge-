@@ -258,6 +258,7 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+    "washing_machine",
     "table_fan",
     "sewing_machine",
     "bluetooth_speaker",
@@ -273,7 +274,7 @@ var GADGET_LEVEL_ORDER = [
     "desktop",
     "fridge",
     "mixi",
-    "washing_machine",
+    
     "cooktop",
     "ac",
     "geyser",
