@@ -232,6 +232,23 @@ var GADGET_SPRITES = [
         "connection_height": 0.3,
         "connection_left_padding": 0.5
     },
+    {
+        // Table fan: body.png is the base sprite (drives display size); the blade
+        // and front grill are layered on top by the "fan" charge effect. The blade
+        // spins clockwise, ramping from slow to fan-like top speed as charge fills.
+        "name": "table_fan",
+        "normal_sprite": "table_fan/body.png",
+        "burnedout_sprite": "table_fan/body.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5,
+        "charge_effect": "fan",
+        "charge_effect_params": {
+            "blade": "table_fan/blade.png",
+            "grill": "table_fan/front_grill.png",
+            "maxRpm": 300,   // top spin speed
+            "rampExp": 2.0   // >1 = slow early, keeps accelerating as charge fills
+        }
+    },
 ];
 
 // ============================================================
@@ -241,6 +258,7 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+    "table_fan",
     "sewing_machine",
     "bluetooth_speaker",
     "cooktop",

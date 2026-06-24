@@ -103,6 +103,125 @@ var CHARGE_EFFECTS = {
                 p._fx.glow = null;
             }
         }
+    },
+
+    // ── FAN ─────────────────────────────────────────────────────────────────
+    // A table fan rendered as three stacked layers: the base gadget sprite is the
+    // BODY (bottom, used for size), and this effect adds the BLADE (middle) and the
+    // FRONT_GRILL (top). Both secondary layers are smaller than the body and are
+    // pinned to the body's top-left at offset (0,0), scaled by the same factor the
+    // body was scaled by — so they stay inside the body's rect.
+    //
+    // As charge goes 0 → 1 the blade spins clockwise, easing from a slow crawl up
+    // to ~`maxRpm` (a real-fan-ish top speed). Body and grill stay still.
+    fan: {
+        assets(params) {
+            return {
+                blade: (params.blade || 'table_fan/blade.png'),
+                grill: (params.grill || 'table_fan/front_grill.png')
+            };
+        },
+
+        init(scene, p, params) {
+            p._fx = p._fx || {};
+
+            const bladeKey = `fx_${p._gadgetName}_blade`;
+            const grillKey = `fx_${p._gadgetName}_grill`;
+            const bodyKey  = `gadget_${p._gadgetName}_normal`;
+            if (!scene.textures.exists(bladeKey) || !scene.textures.exists(bodyKey)) return;
+
+            // Same scale the body was drawn at (display / native), so the secondary
+            // art keeps its real proportions relative to the body.
+            const bodyImg = scene.textures.get(bodyKey).getSourceImage();
+            const scale   = p._gadgetDisplayWidth / bodyImg.width;
+
+            // Body's top-left in world space (body is centered on the origin).
+            const bodyLeft = p._gadgetOriginX - p._gadgetDisplayWidth  / 2;
+            const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
+
+            const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
+
+            // Pin a centered-origin sprite so its top-left lands at the body's
+            // top-left plus `off` (an offset in body-native pixels, scaled to match).
+            const place = (key, depth, off) => {
+                const img = scene.textures.get(key).getSourceImage();
+                const w  = img.width  * scale;
+                const h  = img.height * scale;
+                const ox = (off && off.x ? off.x : 0) * scale;
+                const oy = (off && off.y ? off.y : 0) * scale;
+                const s = scene.add.image(bodyLeft + ox + w / 2, bodyTop + oy + h / 2, key)
+                    .setDepth(depth);
+                s.setDisplaySize(w, h);   // origin 0.5 → rotates about its own center
+                return s;
+            };
+
+            // Blade is offset (36,41) from the body's top-left; grill stays at (0,0).
+            const blade = place(bladeKey, baseDepth + 0.05, params.bladeOffset || { x: 36, y: 41 });
+            const grill = scene.textures.exists(grillKey)
+                ? place(grillKey, baseDepth + 0.10, params.grillOffset || { x: 0, y: 0 })
+                : null;
+
+            // Fade the layers in alongside the body's pop-in animation so they don't
+            // flash at full size while the body is still growing.
+            const idx = (scene.platforms ? scene.platforms.indexOf(p) : 0);
+            [blade, grill].forEach(s => {
+                if (!s) return;
+                s.setAlpha(0);
+                scene.tweens.add({
+                    targets: s, alpha: 1, duration: 400,
+                    delay: Math.max(0, idx) * 150, ease: 'Sine.easeOut'
+                });
+            });
+
+            // Continuous clockwise spin driven by an infinite angle tween whose
+            // timeScale we throttle from 0 (still) up to maxRpm as charge fills.
+            // At timeScale 1 the tween does one revolution per `baseRevMs` = 60 rpm.
+            const baseRevMs = 1000;
+            const spin = scene.tweens.add({
+                targets: blade, angle: '+=360',
+                duration: baseRevMs, repeat: -1, ease: 'Linear'
+            });
+            spin.timeScale = 0;
+
+            p._fx.fanBlade     = blade;
+            p._fx.fanGrill     = grill;
+            p._fx.fanSpin      = spin;
+            p._fx.fanSpeedTween = null;
+            p._fx.fanMaxRpm    = params.maxRpm ?? 700;  // top speed (lowered for readability)
+            p._fx.fanRampExp   = params.rampExp ?? 2.0; // >1 = ease in (slow early, ramps later)
+            p._fx.fanSmoothMs  = params.speedSmoothMs ?? 1100; // glide-to-target time
+            p._fx.fanBaseRpm   = 60000 / baseRevMs;     // rpm at timeScale 1
+        },
+
+        onProgress(scene, p, progress, params) {
+            const spin = p._fx && p._fx.fanSpin;
+            if (!spin) return;
+            const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
+            const t    = Math.min(progress / mark, 1);  // 0 → 1 by the mark, then held
+
+            // Charge arrives in discrete per-second steps, but speed shouldn't jump.
+            // Ease the curve (t^rampExp) so the spin keeps accelerating across the
+            // whole fill, then glide the spin's timeScale toward the new target like
+            // Unity's Mathf.MoveTowards instead of snapping to it.
+            const eased  = Math.pow(t, p._fx.fanRampExp);
+            const target = (p._fx.fanMaxRpm * eased) / p._fx.fanBaseRpm;
+
+            if (p._fx.fanSpeedTween) p._fx.fanSpeedTween.remove();
+            p._fx.fanSpeedTween = scene.tweens.add({
+                targets: spin, timeScale: target,
+                duration: p._fx.fanSmoothMs, ease: 'Linear'  // constant-rate, MoveTowards-like
+            });
+        },
+
+        onOvercharge() { /* keep spinning until the explosion/cleanup tears it down */ },
+
+        cleanup(scene, p) {
+            if (!p._fx) return;
+            if (p._fx.fanSpeedTween) { p._fx.fanSpeedTween.remove(); p._fx.fanSpeedTween = null; }
+            if (p._fx.fanSpin)  { p._fx.fanSpin.remove(); p._fx.fanSpin = null; }
+            if (p._fx.fanBlade) { scene.tweens.killTweensOf(p._fx.fanBlade); p._fx.fanBlade.destroy(); p._fx.fanBlade = null; }
+            if (p._fx.fanGrill) { scene.tweens.killTweensOf(p._fx.fanGrill); p._fx.fanGrill.destroy(); p._fx.fanGrill = null; }
+        }
     }
 };
 
