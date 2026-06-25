@@ -234,6 +234,20 @@ var CONFIG = {
         SEWING_MIN_FPS: 3,             // loop speed just after charging begins (~0% → slow stitching)
         SEWING_MAX_FPS: 28,            // loop speed at full charge (fast stitching)
 
+        // ── Washing machine (animated gadget) ─────────────────────────────────
+        // 6-frame sprite sheet (2 rows x 3 cols, 279x336 each) used as the gadget.
+        // Frame 0 = idle (clothes sitting still) shown before any rotation; once
+        // charging starts the drum spins by looping frames 1..5, and the loop speed
+        // ramps from MIN → MAX fps as it charges 0 → 1.
+        WASHING_GADGET_NAME: 'washing_machine',
+        WASHING_FRAME_W: 279,
+        WASHING_FRAME_H: 336,
+        WASHING_LOOP_START: 1,         // first spin frame (frame 0 is idle, excluded)
+        WASHING_LOOP_END: 5,           // last spin frame
+        WASHING_BASE_FPS: 12,          // base frame rate (timeScale multiplies this)
+        WASHING_MIN_FPS: 4,            // loop speed just after charging begins (slow tumble)
+        WASHING_MAX_FPS: 24,           // loop speed at full charge (fast spin)
+
         // T-shirt cloth shown to the LEFT of the machine; revealed with an organic
         // wavy stitching front as the gadget charges 0 → 1 (a needle glint + running
         // stitch trail ride the reveal front).

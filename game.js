@@ -322,6 +322,12 @@ class GameScene extends Phaser.Scene {
             frameWidth: 143, frameHeight: 122,
         });
 
+        // Washing-machine animated gadget sheet (6 frames, 2x3 grid, 279x336;
+        // frame 0 = idle, frames 1..5 = spin loop)
+        this.load.spritesheet('washing_machine_anim', 'graphics/gadgets/washing_machine_279_336.png', {
+            frameWidth: 279, frameHeight: 336,
+        });
+
         // T-shirt cloth shown to the left of the sewing machine; revealed with an
         // organic wavy front as it charges. Feature self-skips until the file exists.
         this.load.image('tshirt', 'graphics/gadgets/t-shirt.png');
@@ -1263,6 +1269,27 @@ console.log(
         p._sewing.anims.timeScale = fps / P.SEWING_BASE_FPS;
     }
 
+    // Drive the washing-machine drum-spin speed from charge progress 0..1.
+    // At ~0 it sits on the idle frame (frame 0, clothes still); above that it
+    // loops the spin frames, speeding up from MIN_FPS → MAX_FPS as it fills.
+    _updateWashingSpeed(p, progress) {
+        if (!p._washing) return;
+        const P    = CONFIG.PLATFORM;
+        const prog = Math.max(0, Math.min(1, progress));
+
+        if (prog <= 0.001) {
+            if (p._washingPlaying) { p._washing.anims.stop(); p._washingPlaying = false; }
+            p._washing.setFrame(0);   // idle pose, no rotation yet
+            return;
+        }
+        if (!p._washingPlaying) {
+            p._washing.play('washing_loop');
+            p._washingPlaying = true;
+        }
+        const fps = P.WASHING_MIN_FPS + (P.WASHING_MAX_FPS - P.WASHING_MIN_FPS) * prog;
+        p._washing.anims.timeScale = fps / P.WASHING_BASE_FPS;
+    }
+
     // Reveal the t-shirt up to `progress` with an organic wavy front (left→right).
     // Mirrors the tooth mask but for the cloth — the edge profile gives the wave.
     _drawTshirtMask(p, progress) {
@@ -1378,6 +1405,8 @@ console.log(
             const normalKey = `gadget_${gadgetData.name}_normal`;
             const isSewing = gadgetData.name === P.SEWING_GADGET_NAME
                 && this.textures.exists('sewing_machine');
+            const isWashing = gadgetData.name === P.WASHING_GADGET_NAME
+                && this.textures.exists('washing_machine_anim');
             let gadgetDisplayWidth, gadgetDisplayHeight;
 
             if (isSewing) {
@@ -1386,6 +1415,12 @@ console.log(
                                     p.debugRectHeight / P.SEWING_FRAME_H);
                 gadgetDisplayWidth  = P.SEWING_FRAME_W * sc;
                 gadgetDisplayHeight = P.SEWING_FRAME_H * sc;
+            } else if (isWashing) {
+                // Size by a single frame (279x336), not the whole sheet.
+                const sc = Math.min(p.debugRectWidth / P.WASHING_FRAME_W,
+                                    p.debugRectHeight / P.WASHING_FRAME_H);
+                gadgetDisplayWidth  = P.WASHING_FRAME_W * sc;
+                gadgetDisplayHeight = P.WASHING_FRAME_H * sc;
             } else if (this.textures.exists(normalKey)) {
                 const size = this._getAspectFitSize(
                     this.textures.get(normalKey),
@@ -1422,9 +1457,11 @@ console.log(
             // otherwise the usual static image (or a grey rect fallback).
             const gadgetSprite = isSewing
                 ? this.add.sprite(gadgetX, gadgetY, 'sewing_machine', 0)
-                : this.textures.exists(normalKey)
-                    ? this.add.image(gadgetX, gadgetY, normalKey)
-                    : this.add.rectangle(gadgetX, gadgetY, gadgetDisplayWidth, gadgetDisplayHeight, 0x888888);
+                : isWashing
+                    ? this.add.sprite(gadgetX, gadgetY, 'washing_machine_anim', 0)
+                    : this.textures.exists(normalKey)
+                        ? this.add.image(gadgetX, gadgetY, normalKey)
+                        : this.add.rectangle(gadgetX, gadgetY, gadgetDisplayWidth, gadgetDisplayHeight, 0x888888);
 
             gadgetSprite.setDisplaySize(gadgetDisplayWidth, gadgetDisplayHeight);
             gadgetSprite.setDepth(4);
@@ -1525,6 +1562,25 @@ console.log(
                 gadgetSprite.setFrame(0);   // idle pose until charging starts
                 p._sewing = gadgetSprite;
                 p._sewingPlaying = false;
+            }
+
+            // ── Washing machine (animated gadget) ──────────────────────────────
+            // Idle on frame 0; once charging starts the drum spins by looping
+            // frames 1..5, speeding up with charge (see _updateWashingSpeed).
+            p._washing = null;
+            if (isWashing) {
+                if (!this.anims.exists('washing_loop')) {
+                    this.anims.create({
+                        key: 'washing_loop',
+                        frames: this.anims.generateFrameNumbers('washing_machine_anim',
+                            { start: P.WASHING_LOOP_START, end: P.WASHING_LOOP_END }),
+                        frameRate: P.WASHING_BASE_FPS,
+                        repeat: -1,
+                    });
+                }
+                gadgetSprite.setFrame(0);   // idle pose (clothes still) until charging starts
+                p._washing = gadgetSprite;
+                p._washingPlaying = false;
             }
 
             // ── T-shirt cloth (sewing machine) ─────────────────────────────────
@@ -1861,6 +1917,8 @@ console.log(
             p._chicken = p._chickenNext = null;
             p._sewing = null;          // same object as gadgetSprite (already destroyed); anim auto-stops
             p._sewingPlaying = false;
+            p._washing = null;         // same object as gadgetSprite (already destroyed); anim auto-stops
+            p._washingPlaying = false;
             if (p._tshirtTween) { p._tshirtTween.remove(); p._tshirtTween = null; }
             p._tshirt = p._tshirtMaskGfx = p._tshirtSeamGfx = p._tshirtNeedle = null;
             p._tshirtEdgeProfile = null;
@@ -1985,6 +2043,7 @@ console.log(
             this._updateToothMask(p, fxProgress);
             this._updateChickenFrame(p, fxProgress);
             this._updateSewingSpeed(p, fxProgress);
+            this._updateWashingSpeed(p, fxProgress);
             this._updateTshirt(p, fxProgress);
 
             // Check if we've reached or exceeded capacity
@@ -2609,6 +2668,8 @@ console.log(
                         
                         if(P.GADGET_SPRITE_SWITCH_ON_TENSION_ENABLED){
                             // Switch texture mid-shake for continuity
+                        // Stop any animated-gadget loop so it doesn't override the burned texture
+                        if (p._washing && p._washing.anims) p._washing.anims.stop();
                         p.gadgetSprite.setTexture(burnedKey);
                         p.gadgetSprite.setTint(0xffffff);
                         p.gadgetSprite.setScale(1);
@@ -2815,6 +2876,8 @@ console.log(
                     p.coinAnimationComplete = true;
                 }
                 
+                // Stop any animated-gadget loop so it freezes instead of spinning while burned
+                if (p._washing && p._washing.anims) p._washing.anims.stop();
                 p.gadgetSprite.setTint(0x444444);
                 p.gadgetSprite.setAlpha(1);
                 // Apply aspect-ratio-preserving scaling
