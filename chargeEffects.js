@@ -222,6 +222,132 @@ var CHARGE_EFFECTS = {
             if (p._fx.fanBlade) { scene.tweens.killTweensOf(p._fx.fanBlade); p._fx.fanBlade.destroy(); p._fx.fanBlade = null; }
             if (p._fx.fanGrill) { scene.tweens.killTweensOf(p._fx.fanGrill); p._fx.fanGrill.destroy(); p._fx.fanGrill = null; }
         }
+    },
+
+    // ── BLENDER ───────────────────────────────────────────────────────────────
+    // A blender whose base sprite (blender.png) shows the jar, with six "swirl"
+    // images (swirl1..swirl6) stacked on top — the fruit/contents being blended.
+    // All six swirls share a single spinning angle (so the spin speed never jumps),
+    // and we alpha-blend between consecutive swirls as charge fills: swirl1 is shown
+    // near empty, swirl6 near full, cross-fading through the middle instead of hard
+    // switching at every 1/6 of the phase. The spin starts slow and accelerates with
+    // charge, just like a real blender ramping up.
+    blender: {
+        assets(params) {
+            const out = {};
+            for (let i = 1; i <= 6; i++) {
+                out[`swirl${i}`] = (params.swirls && params.swirls[i - 1]) || `blender/swirl${i}.png`;
+            }
+            return out;
+        },
+
+        init(scene, p, params) {
+            p._fx = p._fx || {};
+
+            const bodyKey = `gadget_${p._gadgetName}_normal`;
+            if (!scene.textures.exists(bodyKey)) return;
+
+            // Match the scale the body sprite was drawn at, so the swirls keep their
+            // real proportions relative to the jar.
+            const bodyImg = scene.textures.get(bodyKey).getSourceImage();
+            const scale   = p._gadgetDisplayWidth / bodyImg.width;
+
+            // Body's top-left in world space (body is centred on the origin). Each
+            // swirl is pinned to the body's top-left at offset (0,0) — its top-left
+            // lands on the jar's top-left — while still rotating about its own centre.
+            const bodyLeft = p._gadgetOriginX - p._gadgetDisplayWidth  / 2;
+            const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
+            const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
+
+            const swirls = [];
+            for (let i = 1; i <= 6; i++) {
+                const key = `fx_${p._gadgetName}_swirl${i}`;
+                if (!scene.textures.exists(key)) { swirls.push(null); continue; }
+                const img = scene.textures.get(key).getSourceImage();
+                const w = img.width  * scale;
+                const h = img.height * scale;
+                // origin 0.5 → centre placed so the top-left sits at the body's top-left
+                const s = scene.add.image(bodyLeft + w / 2, bodyTop + h / 2, key)
+                    .setDepth(baseDepth + 0.05 + i * 0.001)
+                    .setAlpha(0);
+                s.setDisplaySize(w, h);
+                swirls.push(s);
+            }
+            // swirl1 is the initial contents, visible from the start.
+            if (swirls[0]) swirls[0].setAlpha(1);
+
+            // One infinite spin shared by every swirl: a single tween over all of them
+            // guarantees they rotate in lock-step, so cross-fading never reveals a speed
+            // mismatch. We throttle its timeScale from ~0 up to maxRpm as charge fills.
+            // At timeScale 1 the tween turns once per baseRevMs (= 60 rpm).
+            const baseRevMs = 1000;
+            const spinnable = swirls.filter(Boolean);
+            const spin = spinnable.length ? scene.tweens.add({
+                targets: spinnable, angle: '+=360',
+                duration: baseRevMs, repeat: -1, ease: 'Linear'
+            }) : null;
+            if (spin) spin.timeScale = 0;
+
+            p._fx.blenderSwirls   = swirls;
+            p._fx.blenderSpin     = spin;
+            p._fx.blenderSpeedTween = null;
+            p._fx.blenderMinRpm   = params.minRpm  ?? 18;    // small starting crawl
+            p._fx.blenderMaxRpm   = params.maxRpm  ?? 900;   // full-blast top speed
+            p._fx.blenderRampExp  = params.rampExp ?? 2.0;   // >1 = slow early, ramps later
+            p._fx.blenderSmoothMs = params.speedSmoothMs ?? 1000; // glide-to-target time
+            p._fx.blenderBaseRpm  = 60000 / baseRevMs;       // rpm at timeScale 1
+        },
+
+        onProgress(scene, p, progress, params) {
+            if (!p._fx) return;
+            const swirls = p._fx.blenderSwirls;
+            const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
+            const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
+
+            // ── Switch the contents ──────────────────────────────────────────────
+            // Show exactly one swirl for the current 1/6 division, switching instantly
+            // at each 1/6 boundary (swirl1 in [0,1/6), … swirl6 in [5/6,1]).
+            if (swirls) {
+                const n = swirls.length;                 // 6
+                const active = Math.min(n - 1, Math.floor(t * n));
+                for (let i = 0; i < n; i++) {
+                    if (!swirls[i]) continue;
+                    swirls[i].setAlpha(i === active ? 1 : 0);
+                }
+            }
+
+            // ── Spin speed ───────────────────────────────────────────────────────
+            // Ease the curve (t^rampExp) so the blade keeps accelerating across the
+            // whole fill, then glide the spin's timeScale toward the new target
+            // (MoveTowards-style) instead of snapping when charge arrives in steps.
+            const spin = p._fx.blenderSpin;
+            if (!spin) return;
+            const eased  = Math.pow(t, p._fx.blenderRampExp);
+            const rpm    = p._fx.blenderMinRpm + (p._fx.blenderMaxRpm - p._fx.blenderMinRpm) * eased;
+            const target = rpm / p._fx.blenderBaseRpm;
+
+            if (p._fx.blenderSpeedTween) p._fx.blenderSpeedTween.remove();
+            p._fx.blenderSpeedTween = scene.tweens.add({
+                targets: spin, timeScale: target,
+                duration: p._fx.blenderSmoothMs, ease: 'Linear'
+            });
+        },
+
+        onOvercharge() { /* keep blending until the explosion/cleanup tears it down */ },
+
+        cleanup(scene, p) {
+            if (!p._fx) return;
+            if (p._fx.blenderSpeedTween) { p._fx.blenderSpeedTween.remove(); p._fx.blenderSpeedTween = null; }
+            if (p._fx.blenderSpin) { p._fx.blenderSpin.remove(); p._fx.blenderSpin = null; }
+            if (p._fx.blenderSwirls) {
+                p._fx.blenderSwirls.forEach(s => {
+                    if (!s) return;
+                    scene.tweens.killTweensOf(s);
+                    s.destroy();
+                });
+                p._fx.blenderSwirls = null;
+            }
+        }
     }
 };
 

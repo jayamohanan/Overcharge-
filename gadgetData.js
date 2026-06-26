@@ -249,6 +249,26 @@ var GADGET_SPRITES = [
             "rampExp": 2.0   // >1 = slow early, keeps accelerating as charge fills
         }
     },
+    {
+        // Blender: blender.png is the base jar; the "blender" charge effect layers
+        // six swirl images (the contents) on top, cross-fading swirl1→swirl6 as it
+        // charges while a shared spin accelerates from a slow crawl to full blast.
+        "name": "blender",
+        "normal_sprite": "blender/blender.png",
+        "burnedout_sprite": "blender/blender.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5,
+        "charge_effect": "blender",
+        "charge_effect_params": {
+            "swirls": [
+                "blender/swirl1.png", "blender/swirl2.png", "blender/swirl3.png",
+                "blender/swirl4.png", "blender/swirl5.png", "blender/swirl6.png"
+            ],
+            "minRpm": 18,    // small starting crawl
+            "maxRpm": 500,   // full-blast top speed
+            "rampExp": 2.0   // >1 = slow early, keeps accelerating as charge fills
+        }
+    },
 ];
 
 // ============================================================
@@ -258,15 +278,18 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+    "blender",
     "washing_machine",
     "table_fan",
     "sewing_machine",
+    "brush",
+    
     "bluetooth_speaker",
     "cooktop",
         "bulb",
     
 
-    "brush",
+    
     "radio",
     "phone",
     "laptop",
