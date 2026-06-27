@@ -278,8 +278,9 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+     "washing_machine",
     "blender",
-    "washing_machine",
+   
     "table_fan",
     "sewing_machine",
     "brush",
