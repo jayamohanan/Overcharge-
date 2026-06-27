@@ -199,11 +199,16 @@ var CHARGE_EFFECTS = {
             const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
             const t    = Math.min(progress / mark, 1);  // 0 → 1 by the mark, then held
 
+            // Hold still until `spinStart` of charge, then remap so the spin begins at
+            // 0 right at that threshold and scales to 1 at full charge.
+            const start = params.spinStart ?? 0.1;
+            const tt    = start >= 1 ? 0 : Math.max(0, (t - start) / (1 - start));
+
             // Charge arrives in discrete per-second steps, but speed shouldn't jump.
-            // Ease the curve (t^rampExp) so the spin keeps accelerating across the
+            // Ease the curve (tt^rampExp) so the spin keeps accelerating across the
             // whole fill, then glide the spin's timeScale toward the new target like
             // Unity's Mathf.MoveTowards instead of snapping to it.
-            const eased  = Math.pow(t, p._fx.fanRampExp);
+            const eased  = Math.pow(tt, p._fx.fanRampExp);
             const target = (p._fx.fanMaxRpm * eased) / p._fx.fanBaseRpm;
 
             if (p._fx.fanSpeedTween) p._fx.fanSpeedTween.remove();
@@ -322,7 +327,11 @@ var CHARGE_EFFECTS = {
             // (MoveTowards-style) instead of snapping when charge arrives in steps.
             const spin = p._fx.blenderSpin;
             if (!spin) return;
-            const eased  = Math.pow(t, p._fx.blenderRampExp);
+            // Hold still until `spinStart` of charge, then remap so the spin begins at
+            // 0 right at that threshold and scales to 1 at full charge.
+            const start  = params.spinStart ?? 0.1;
+            const tt     = start >= 1 ? 0 : Math.max(0, (t - start) / (1 - start));
+            const eased  = Math.pow(tt, p._fx.blenderRampExp);
             const rpm    = p._fx.blenderMinRpm + (p._fx.blenderMaxRpm - p._fx.blenderMinRpm) * eased;
             const target = rpm / p._fx.blenderBaseRpm;
 
@@ -346,6 +355,133 @@ var CHARGE_EFFECTS = {
                     s.destroy();
                 });
                 p._fx.blenderSwirls = null;
+            }
+        }
+    },
+
+    // ── WASHER ──────────────────────────────────────────────────────────────
+    // A washing machine whose base sprite (washing_machine.png) shows the body,
+    // with two "swirl" images (swirl0, swirl1) — the rotating drum — pinned on top
+    // at a fixed offset from the body's top-left. swirl0 shows below half speed,
+    // swirl1 takes over once the spin passes 50% of its top speed. They share one
+    // spin tween (so swapping never reveals a speed mismatch) that accelerates from
+    // stationary to full speed as charge fills.
+    washer: {
+        assets(params) {
+            return {
+                swirl0: (params.swirls && params.swirls[0]) || `washing_machine/swirl0.png`,
+                swirl1: (params.swirls && params.swirls[1]) || `washing_machine/swirl1.png`
+            };
+        },
+
+        init(scene, p, params) {
+            p._fx = p._fx || {};
+
+            const bodyKey = `gadget_${p._gadgetName}_normal`;
+            if (!scene.textures.exists(bodyKey)) return;
+
+            // Match the scale the body sprite was drawn at, so the swirls keep their
+            // real proportions relative to the body.
+            const bodyImg = scene.textures.get(bodyKey).getSourceImage();
+            const scale   = p._gadgetDisplayWidth / bodyImg.width;
+
+            // Body's top-left in world space (body is centred on the origin). Each
+            // swirl is pinned at `offset` (body-native px, scaled to match) from the
+            // top-left, while still rotating about its own centre.
+            const bodyLeft = p._gadgetOriginX - p._gadgetDisplayWidth  / 2;
+            const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
+            const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
+
+            const off = params.offset || { x: 35, y: 77 };
+            const ox  = (off.x || 0) * scale;
+            const oy  = (off.y || 0) * scale;
+
+            const swirls = [];
+            for (let i = 0; i < 2; i++) {
+                const key = `fx_${p._gadgetName}_swirl${i}`;
+                if (!scene.textures.exists(key)) { swirls.push(null); continue; }
+                const img = scene.textures.get(key).getSourceImage();
+                const w = img.width  * scale;
+                const h = img.height * scale;
+                // origin 0.5 → centre placed so the top-left sits at body top-left + offset
+                const s = scene.add.image(bodyLeft + ox + w / 2, bodyTop + oy + h / 2, key)
+                    .setDepth(baseDepth + 0.05 + i * 0.001)
+                    .setAlpha(0);
+                s.setDisplaySize(w, h);
+                swirls.push(s);
+            }
+            // swirl0 is the initial (stationary) drum, visible from the start.
+            if (swirls[0]) swirls[0].setAlpha(1);
+
+            // One infinite spin shared by both swirls so swapping never reveals a
+            // speed mismatch. timeScale throttled from 0 up to maxRpm as charge fills.
+            // At timeScale 1 the tween turns once per baseRevMs (= 60 rpm).
+            const baseRevMs = 1000;
+            const spinnable = swirls.filter(Boolean);
+            const spin = spinnable.length ? scene.tweens.add({
+                targets: spinnable, angle: '+=360',
+                duration: baseRevMs, repeat: -1, ease: 'Linear'
+            }) : null;
+            if (spin) spin.timeScale = 0;
+
+            p._fx.washerSwirls    = swirls;
+            p._fx.washerSpin      = spin;
+            p._fx.washerSpeedTween = null;
+            p._fx.washerMinRpm    = params.minRpm  ?? 0;     // starts stationary
+            p._fx.washerMaxRpm    = params.maxRpm  ?? 400;   // full-spin top speed
+            p._fx.washerRampExp   = params.rampExp ?? 2.0;   // >1 = slow early, ramps later
+            p._fx.washerSmoothMs  = params.speedSmoothMs ?? 1000; // glide-to-target time
+            p._fx.washerBaseRpm   = 60000 / baseRevMs;       // rpm at timeScale 1
+        },
+
+        onProgress(scene, p, progress, params) {
+            if (!p._fx) return;
+            const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
+            const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
+
+            // Spin speed: ease the curve (t^rampExp) so it keeps accelerating across
+            // the whole fill, then glide timeScale toward the target (MoveTowards-style)
+            // instead of snapping when charge arrives in steps.
+            const spin = p._fx.washerSpin;
+            if (!spin) return;
+            // Hold still until `spinStart` of charge, then remap so the spin begins at
+            // 0 right at that threshold and scales to 1 at full charge.
+            const start  = params.spinStart ?? 0.1;
+            const tt     = start >= 1 ? 0 : Math.max(0, (t - start) / (1 - start));
+            const eased  = Math.pow(tt, p._fx.washerRampExp);
+            const rpm    = p._fx.washerMinRpm + (p._fx.washerMaxRpm - p._fx.washerMinRpm) * eased;
+            const target = rpm / p._fx.washerBaseRpm;
+
+            // Swap the drum image once the spin passes 50% of its top speed:
+            // swirl0 below half speed, swirl1 at/above it.
+            const swirls = p._fx.washerSwirls;
+            if (swirls) {
+                const active = eased >= 0.5 ? 1 : 0;
+                for (let i = 0; i < swirls.length; i++) {
+                    if (swirls[i]) swirls[i].setAlpha(i === active ? 1 : 0);
+                }
+            }
+
+            if (p._fx.washerSpeedTween) p._fx.washerSpeedTween.remove();
+            p._fx.washerSpeedTween = scene.tweens.add({
+                targets: spin, timeScale: target,
+                duration: p._fx.washerSmoothMs, ease: 'Linear'
+            });
+        },
+
+        onOvercharge() { /* keep spinning until the explosion/cleanup tears it down */ },
+
+        cleanup(scene, p) {
+            if (!p._fx) return;
+            if (p._fx.washerSpeedTween) { p._fx.washerSpeedTween.remove(); p._fx.washerSpeedTween = null; }
+            if (p._fx.washerSpin) { p._fx.washerSpin.remove(); p._fx.washerSpin = null; }
+            if (p._fx.washerSwirls) {
+                p._fx.washerSwirls.forEach(s => {
+                    if (!s) return;
+                    scene.tweens.killTweensOf(s);
+                    s.destroy();
+                });
+                p._fx.washerSwirls = null;
             }
         }
     }

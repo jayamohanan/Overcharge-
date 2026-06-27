@@ -187,11 +187,27 @@ var GADGET_SPRITES = [
         "connection_left_padding": 0.5
     },
     {
+        // Washing machine: washing_machine.png is the body; the "washer" charge
+        // effect layers three swirl images (the rotating drum) on top at offset
+        // (35,77) from the body's top-left, swapping swirl0→swirl1→swirl2 across
+        // equal charge thirds while a shared spin accelerates from still to full.
         "name": "washing_machine",
-        "normal_sprite": "washing_machine.png",
-        "burnedout_sprite": "washing_machine_burnedout.png",
+        "normal_sprite": "washing_machine/washing_machine.png",
+        "burnedout_sprite": "washing_machine/washing_machine.png",
         "connection_height": 0.3,
-        "connection_left_padding": 0.5
+        "connection_left_padding": 0.5,
+        "charge_effect": "washer",
+        "charge_effect_params": {
+            "swirls": [
+                "washing_machine/swirl0.png",
+                "washing_machine/swirl1.png",
+                "washing_machine/swirl2.png"
+            ],
+            "offset": { "x": 35, "y": 77 },
+            "minRpm": 0,     // starts stationary
+            "maxRpm": 150,   // full-spin top speed
+            "rampExp": 2.0   // >1 = slow early, keeps accelerating as charge fills
+        }
     },
     {
         "name": "cooktop",
