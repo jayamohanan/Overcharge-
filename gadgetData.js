@@ -266,6 +266,34 @@ var GADGET_SPRITES = [
         }
     },
     {
+        // Record player: record_player.png is the body; the "record_player" charge
+        // effect layers two reels (disc over tape) on top at fixed offsets. Both
+        // discs spin up to a small constant speed while charging, and the reels
+        // trade size — tape1 shrinks 1→0.1 as tape2 grows 0.1→1 — to mimic tape
+        // unwinding from the left reel onto the right.
+        "name": "record_player",
+        "normal_sprite": "record_player/record_player.png",
+        "burnedout_sprite": "record_player/record_player.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5,
+        "charge_effect": "record_player",
+        "charge_effect_params": {
+            "disc": "record_player/disc.png",
+            "tape": "record_player/tape.png",
+            "discSize": { "w": 110, "h": 110 },
+            "tapeSize": { "w": 78, "h": 78 },
+            "offsets": {
+                "disc1": { "x": 6.5, "y": 11 },
+                "disc2": { "x": 136, "y": 11 },
+                "tape1": { "x": 22.5, "y": 27 },
+                "tape2": { "x": 152, "y": 27 }
+            },
+            "discRpm": 45,        // small constant spin speed
+            "tapeMinScale": 0.1,
+            "tapeMaxScale": 1.0
+        }
+    },
+    {
         // Blender: blender.png is the base jar; the "blender" charge effect layers
         // six swirl images (the contents) on top, cross-fading swirl1→swirl6 as it
         // charges while a shared spin accelerates from a slow crawl to full blast.
@@ -294,6 +322,7 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
+     "record_player",
      "washing_machine",
     "blender",
    

@@ -484,6 +484,143 @@ var CHARGE_EFFECTS = {
                 p._fx.washerSwirls = null;
             }
         }
+    },
+
+    // ── RECORD PLAYER ─────────────────────────────────────────────────────────
+    // A reel-to-reel player: record_player.png is the body; on top sit two reels,
+    // each a tape disc made of a "tape" image (lower) and a "disc" image (upper),
+    // pinned at fixed offsets from the body's top-left. Layer order top→bottom is
+    // disc, tape, body.
+    //
+    // While charging, both discs spin up from 0 to a small CONSTANT speed and hold
+    // it (not proportional to charge). The reels mimic tape transferring left→right:
+    // tape1 starts full (scale 1) and shrinks to ~0.1, while tape2 grows from ~0.1
+    // to full, linearly with charge.
+    record_player: {
+        assets(params) {
+            return {
+                disc: (params.disc || `record_player/disc.png`),
+                tape: (params.tape || `record_player/tape.png`)
+            };
+        },
+
+        init(scene, p, params) {
+            p._fx = p._fx || {};
+
+            const bodyKey = `gadget_${p._gadgetName}_normal`;
+            const discKey = `fx_${p._gadgetName}_disc`;
+            const tapeKey = `fx_${p._gadgetName}_tape`;
+            if (!scene.textures.exists(bodyKey)) return;
+
+            // Match the scale the body was drawn at, so layers keep their proportions.
+            const bodyImg = scene.textures.get(bodyKey).getSourceImage();
+            const scale   = p._gadgetDisplayWidth / bodyImg.width;
+
+            const bodyLeft = p._gadgetOriginX - p._gadgetDisplayWidth  / 2;
+            const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
+            const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
+
+            // Place a centered-origin sprite so its top-left lands at body top-left +
+            // offset (offset & size in body-native px, scaled to display). Returns the
+            // sprite plus its full (scale-1) display size for later reel scaling.
+            const place = (key, depth, size, off) => {
+                if (!scene.textures.exists(key)) return null;
+                const w  = size.w * scale;
+                const h  = size.h * scale;
+                const ox = (off.x || 0) * scale;
+                const oy = (off.y || 0) * scale;
+                const s = scene.add.image(bodyLeft + ox + w / 2, bodyTop + oy + h / 2, key)
+                    .setDepth(depth);
+                s.setDisplaySize(w, h);
+                s._baseW = w; s._baseH = h;   // full size, for reel scale animation
+                return s;
+            };
+
+            const discSize = params.discSize || { w: 110, h: 110 };
+            const tapeSize = params.tapeSize || { w: 78,  h: 78  };
+            const off = params.offsets || {
+                disc1: { x: 6.5, y: 11 }, disc2: { x: 136, y: 11 },
+                tape1: { x: 22.5, y: 27 }, tape2: { x: 152, y: 27 }
+            };
+
+            // Layer order top→bottom: disc (top), tape, body (bottom).
+            const tape1 = place(tapeKey, baseDepth + 0.05, tapeSize, off.tape1);
+            const tape2 = place(tapeKey, baseDepth + 0.05, tapeSize, off.tape2);
+            const disc1 = place(discKey, baseDepth + 0.10, discSize, off.disc1);
+            const disc2 = place(discKey, baseDepth + 0.10, discSize, off.disc2);
+
+            // Reels start at tape1 = full, tape2 = min, then cross-fade in size.
+            const minScale = params.tapeMinScale ?? 0.1;
+            const maxScale = params.tapeMaxScale ?? 1.0;
+            const setReel = (s, f) => { if (s) s.setDisplaySize(s._baseW * f, s._baseH * f); };
+            setReel(tape1, maxScale);
+            setReel(tape2, minScale);
+
+            // Infinite spin for the discs — left disc turns anticlockwise, right disc
+            // clockwise, so the reels look like they're feeding tape across (not both
+            // turning the same way). Separate tweens, but their timeScale is driven
+            // together in onProgress so they stay in lock-step. timeScale 0 at rest;
+            // first onProgress glides it up to the constant small speed. At timeScale
+            // 1 = 60 rpm.
+            const baseRevMs = 1000;
+            const mkSpin = (disc, dir) => disc ? scene.tweens.add({
+                targets: disc, angle: `${dir}=360`,
+                duration: baseRevMs, repeat: -1, ease: 'Linear'
+            }) : null;
+            const spinL = mkSpin(disc1, '-');   // left disc: anticlockwise
+            const spinR = mkSpin(disc2, '+');   // right disc: clockwise
+            const spins = [spinL, spinR].filter(Boolean);
+            spins.forEach(s => s.timeScale = 0);
+
+            p._fx.rpTape1     = tape1;
+            p._fx.rpTape2     = tape2;
+            p._fx.rpDiscs     = [disc1, disc2].filter(Boolean);
+            p._fx.rpSpins     = spins;
+            p._fx.rpSpeedTween = null;
+            p._fx.rpDiscRpm   = params.discRpm ?? 45;   // small constant spin speed
+            p._fx.rpMinScale  = minScale;
+            p._fx.rpMaxScale  = maxScale;
+            p._fx.rpSmoothMs  = params.speedSmoothMs ?? 800;
+            p._fx.rpBaseRpm   = 60000 / baseRevMs;
+        },
+
+        onProgress(scene, p, progress, params) {
+            if (!p._fx) return;
+            const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
+            const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
+
+            // Reels: tape1 full→min, tape2 min→full, linearly with charge.
+            const min = p._fx.rpMinScale, max = p._fx.rpMaxScale;
+            const f1 = max + (min - max) * t;   // 1 → 0.1
+            const f2 = min + (max - min) * t;   // 0.1 → 1
+            if (p._fx.rpTape1) p._fx.rpTape1.setDisplaySize(p._fx.rpTape1._baseW * f1, p._fx.rpTape1._baseH * f1);
+            if (p._fx.rpTape2) p._fx.rpTape2.setDisplaySize(p._fx.rpTape2._baseW * f2, p._fx.rpTape2._baseH * f2);
+
+            // Discs: glide up to a small constant speed once charging starts, then hold.
+            const spins = p._fx.rpSpins;
+            if (!spins || !spins.length) return;
+            const target = (progress > 0 ? p._fx.rpDiscRpm : 0) / p._fx.rpBaseRpm;
+            if (p._fx.rpSpeedTween) p._fx.rpSpeedTween.remove();
+            p._fx.rpSpeedTween = scene.tweens.add({
+                targets: spins, timeScale: target,
+                duration: p._fx.rpSmoothMs, ease: 'Linear'
+            });
+        },
+
+        onOvercharge() { /* keep spinning until the explosion/cleanup tears it down */ },
+
+        cleanup(scene, p) {
+            if (!p._fx) return;
+            if (p._fx.rpSpeedTween) { p._fx.rpSpeedTween.remove(); p._fx.rpSpeedTween = null; }
+            if (p._fx.rpSpins) { p._fx.rpSpins.forEach(s => s && s.remove()); p._fx.rpSpins = null; }
+            [p._fx.rpTape1, p._fx.rpTape2, ...(p._fx.rpDiscs || [])].forEach(s => {
+                if (!s) return;
+                scene.tweens.killTweensOf(s);
+                s.destroy();
+            });
+            p._fx.rpTape1 = p._fx.rpTape2 = null;
+            p._fx.rpDiscs = null;
+        }
     }
 };
 
