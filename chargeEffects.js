@@ -549,6 +549,42 @@ var CHARGE_EFFECTS = {
             const disc1 = place(discKey, baseDepth + 0.10, discSize, off.disc1);
             const disc2 = place(discKey, baseDepth + 0.10, discSize, off.disc2);
 
+            // Punch a circular hole in each reel: a geometry mask with inverted alpha
+            // hides the tape INSIDE the circle. Centre & radius are in body-native px
+            // relative to the body's top-left, scaled by the same factor as the body
+            // so the holes stay aligned with the (also-scaled) reels at any slot size.
+            const maskCfg = params.tapeMask || {
+                left:  { x: 61,  y: 65 },
+                right: { x: 191, y: 65 },
+                radius: 15
+            };
+            const maskGfx = [];
+            const applyHole = (sprite, c) => {
+                if (!sprite || !c) return;
+                const g = scene.add.graphics();
+                g.fillStyle(0xffffff);
+                g.fillCircle(bodyLeft + c.x * scale, bodyTop + c.y * scale, (maskCfg.radius || 15) * scale);
+                g.setVisible(false);
+                const mask = g.createGeometryMask();
+                mask.invertAlpha = true;   // visible OUTSIDE the circle → hole inside
+                sprite.setMask(mask);
+                maskGfx.push(g);
+            };
+            applyHole(tape1, maskCfg.left);
+            applyHole(tape2, maskCfg.right);
+            p._fx.rpMaskGfx = maskGfx;
+
+            // DEBUG: red 50%-alpha circles marking where the mask holes are.
+            // Toggle with `debugMask: true` in charge_effect_params.
+            if (params.debugMask) {
+                const dbg = scene.add.graphics().setDepth(baseDepth + 1);
+                dbg.fillStyle(0xff0000, 0.5);
+                [maskCfg.left, maskCfg.right].forEach(c => {
+                    if (c) dbg.fillCircle(bodyLeft + c.x * scale, bodyTop + c.y * scale, (maskCfg.radius || 15) * scale);
+                });
+                p._fx.rpDebugGfx = dbg;
+            }
+
             // Reels start at tape1 = full, tape2 = min, then cross-fade in size.
             const minScale = params.tapeMinScale ?? 0.1;
             const maxScale = params.tapeMaxScale ?? 1.0;
@@ -556,19 +592,17 @@ var CHARGE_EFFECTS = {
             setReel(tape1, maxScale);
             setReel(tape2, minScale);
 
-            // Infinite spin for the discs — left disc turns anticlockwise, right disc
-            // clockwise, so the reels look like they're feeding tape across (not both
-            // turning the same way). Separate tweens, but their timeScale is driven
-            // together in onProgress so they stay in lock-step. timeScale 0 at rest;
-            // first onProgress glides it up to the constant small speed. At timeScale
-            // 1 = 60 rpm.
+            // Infinite spin for the discs — both turn anticlockwise. Separate tweens,
+            // but their timeScale is driven together in onProgress so they stay in
+            // lock-step. timeScale 0 at rest; first onProgress glides it up to the
+            // constant small speed. At timeScale 1 = 60 rpm.
             const baseRevMs = 1000;
             const mkSpin = (disc, dir) => disc ? scene.tweens.add({
                 targets: disc, angle: `${dir}=360`,
                 duration: baseRevMs, repeat: -1, ease: 'Linear'
             }) : null;
             const spinL = mkSpin(disc1, '-');   // left disc: anticlockwise
-            const spinR = mkSpin(disc2, '+');   // right disc: clockwise
+            const spinR = mkSpin(disc2, '-');   // right disc: anticlockwise
             const spins = [spinL, spinR].filter(Boolean);
             spins.forEach(s => s.timeScale = 0);
 
@@ -589,12 +623,24 @@ var CHARGE_EFFECTS = {
             const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
             const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
 
-            // Reels: tape1 full→min, tape2 min→full, linearly with charge.
+            // Reels: tape1 full→min, tape2 min→full, linearly with charge. Glide the
+            // display size toward the target (instead of snapping every charge tick)
+            // so big per-tick charge steps on low-capacity levels still look gradual.
             const min = p._fx.rpMinScale, max = p._fx.rpMaxScale;
             const f1 = max + (min - max) * t;   // 1 → 0.1
             const f2 = min + (max - min) * t;   // 0.1 → 1
-            if (p._fx.rpTape1) p._fx.rpTape1.setDisplaySize(p._fx.rpTape1._baseW * f1, p._fx.rpTape1._baseH * f1);
-            if (p._fx.rpTape2) p._fx.rpTape2.setDisplaySize(p._fx.rpTape2._baseW * f2, p._fx.rpTape2._baseH * f2);
+            const glideReel = (s, f, tweenKey) => {
+                if (!s) return;
+                if (p._fx[tweenKey]) p._fx[tweenKey].remove();
+                p._fx[tweenKey] = scene.tweens.add({
+                    targets: s,
+                    displayWidth:  s._baseW * f,
+                    displayHeight: s._baseH * f,
+                    duration: p._fx.rpSmoothMs, ease: 'Linear'
+                });
+            };
+            glideReel(p._fx.rpTape1, f1, 'rpTapeTween1');
+            glideReel(p._fx.rpTape2, f2, 'rpTapeTween2');
 
             // Discs: glide up to a small constant speed once charging starts, then hold.
             const spins = p._fx.rpSpins;
@@ -612,12 +658,17 @@ var CHARGE_EFFECTS = {
         cleanup(scene, p) {
             if (!p._fx) return;
             if (p._fx.rpSpeedTween) { p._fx.rpSpeedTween.remove(); p._fx.rpSpeedTween = null; }
+            if (p._fx.rpTapeTween1) { p._fx.rpTapeTween1.remove(); p._fx.rpTapeTween1 = null; }
+            if (p._fx.rpTapeTween2) { p._fx.rpTapeTween2.remove(); p._fx.rpTapeTween2 = null; }
             if (p._fx.rpSpins) { p._fx.rpSpins.forEach(s => s && s.remove()); p._fx.rpSpins = null; }
             [p._fx.rpTape1, p._fx.rpTape2, ...(p._fx.rpDiscs || [])].forEach(s => {
                 if (!s) return;
                 scene.tweens.killTweensOf(s);
+                if (s.clearMask) s.clearMask(true);   // destroys the geometry mask too
                 s.destroy();
             });
+            if (p._fx.rpMaskGfx) { p._fx.rpMaskGfx.forEach(g => g && g.destroy()); p._fx.rpMaskGfx = null; }
+            if (p._fx.rpDebugGfx) { p._fx.rpDebugGfx.destroy(); p._fx.rpDebugGfx = null; }
             p._fx.rpTape1 = p._fx.rpTape2 = null;
             p._fx.rpDiscs = null;
         }

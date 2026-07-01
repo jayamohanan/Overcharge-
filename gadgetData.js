@@ -289,8 +289,15 @@ var GADGET_SPRITES = [
                 "tape2": { "x": 152, "y": 27 }
             },
             "discRpm": 45,        // small constant spin speed
-            "tapeMinScale": 0.1,
-            "tapeMaxScale": 1.0
+            "tapeMinScale": 0.35,
+            "tapeMaxScale": 1.0,
+            "tapeMask": {
+                // circular hole in each reel — tape is hidden INSIDE the circle.
+                // centre relative to record_player top-left, radius in px.
+                "left":  { "x": 61,  "y": 65 },
+                "right": { "x": 191, "y": 65 },
+                "radius": 15
+            }
         }
     },
     {
@@ -322,11 +329,15 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
-     "record_player",
-     "washing_machine",
-    "blender",
-   
+     
+
     "table_fan",
+    "blender",
+     "washing_machine",
+     "record_player",
+    
+   
+    
     "sewing_machine",
     "brush",
     

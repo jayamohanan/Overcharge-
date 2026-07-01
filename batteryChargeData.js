@@ -49,19 +49,23 @@
 // Example: Entry 2 is 'Trump' with count 2
 //   - Covers levels: 4, 5
 //   - Files: trump_1.png, trump_2.png
+var BATTERY_TYPES_RESERVE = [
+    { name: 'Socks', count: 3 },           // 2
+    { name: 'Feather', count: 3 },        // 3
+
+
+];
 var BATTERY_TYPES = [
       { name: 'Battery', count: 3 },        // 1
-{ name: 'Socks', count: 3 },           // 2
-{ name: 'Feather', count: 3 },        // 3
 { name: 'Star', count: 3 },           // 4
-{ name: 'Heart', count: 3 },          // 5
+ { name: 'Heart', count: 3 },          // 5
 { name: 'Scissor', count: 3 },       // 6
 { name: 'Shield', count: 3 },         // 7
 { name: 'Jar', count: 3 },            // 8
 { name: 'Jug', count: 3 },            // 9
 { name: 'Jars', count: 3 },           // 10
 { name: 'Jerrycan', count: 3 },       // 11
-{ name: 'Lamp', count: 3 },           // 12
+{ name: 'Lamp', count: 3 },           // 12**********
 { name: 'Compass', count: 3 },        // 13
 { name: 'Clock', count: 3 },          // 14
 { name: 'Camera', count: 3 },         // 15
@@ -106,6 +110,9 @@ var BATTERY_TYPES = [
 { name: 'Baby', count: 3 },           // 54
 { name: 'Burger', count: 3 },         // 55
 { name: 'King', count: 3 },           // 56
+
+
+
     // Add more battery types here as needed
     // You can also change 'count: 3' to 'count: 2' for any battery type
 ];
@@ -211,169 +218,6 @@ var CHARGE_PER_SECOND_BY_LEVEL = {
     99: 40000000000,
     100: 500000000000
 };
-
-var BATTERY_DATA = []; // Deprecated: Battery data is now generated dynamically from BATTERY_DISPLAY_NAMES_BY_LEVEL
-var BATTERY_DATA_ARCHIVED = [
-    // Array index determines battery level (index 0 = level 1, index 1 = level 2, etc.)
-    // Reorder these batteries however you want - charge values come from CHARGE_PER_SECOND_BY_LEVEL
-
-    { fileName: 'jars_1.png',  displayName: 'Jars' },
-    { fileName: 'jars_2.png',  displayName: 'Jars' },
-    { fileName: 'jars_3.png',  displayName: 'Jars' },
-
-    { fileName: 'trump_1.png',  displayName: 'Trump' },
-    { fileName: 'trump_2.png',  displayName: 'Trump' },
-    { fileName: 'trump_3.png',  displayName: 'Trump' },
-
-    { fileName: 'banana_1.png',  displayName: 'Banana' },
-    { fileName: 'banana_2.png',  displayName: 'Banana' },
-    { fileName: 'banana_3.png',  displayName: 'Banana' },
-
-    { fileName: 'turtle_1.png',  displayName: 'Turtle' },
-    { fileName: 'turtle_2.png',  displayName: 'Turtle' },
-    { fileName: 'turtle_3.png',  displayName: 'Turtle' },
-
-    { fileName: 'skirt_1.png',  displayName: 'Skirt' },
-    { fileName: 'skirt_2.png',  displayName: 'Skirt' },
-    { fileName: 'skirt_3.png',  displayName: 'Skirt' },
-
-    { fileName: 'mask_1.png',  displayName: 'Mask' },
-    { fileName: 'mask_2.png',  displayName: 'Mask' },
-    { fileName: 'mask_3.png',  displayName: 'Mask' },
-
-    { fileName: 'web_1.png',  displayName: 'Spider Web' },
-    { fileName: 'web_2.png',  displayName: 'Spider Web' },
-    { fileName: 'web_3.png',  displayName: 'Spider Web' },
-
-    { fileName: 'baby_1.png',  displayName: 'Baby' },
-    { fileName: 'baby_2.png',  displayName: 'Baby' },
-    { fileName: 'baby_3.png',  displayName: 'Baby' },
-
-    { fileName: 'butterfly_1.png',  displayName: 'Butterfly' },
-    { fileName: 'butterfly_2.png',  displayName: 'Butterfly' },
-    { fileName: 'butterfly_3.png',  displayName: 'Butterfly' },
-
-    { fileName: 'diaper_1.png',  displayName: 'Diaper' },
-    { fileName: 'diaper_2.png',  displayName: 'Diaper' },
-    { fileName: 'diaper_3.png',  displayName: 'Diaper' },
-
-    { fileName: 'poop_1.png',  displayName: 'Poop' },
-    { fileName: 'poop_2.png',  displayName: 'Poop' },
-    { fileName: 'poop_3.png',  displayName: 'Poop' },
-
-    { fileName: 'violin_1.png',  displayName: 'Violin' },
-    { fileName: 'violin_2.png',  displayName: 'Violin' },
-    { fileName: 'violin_3.png',  displayName: 'Violin' },
-
-    { fileName: 'fire_1.png',  displayName: 'Fire' },
-    { fileName: 'fire_2.png',  displayName: 'Fire' },
-    { fileName: 'fire_3.png',  displayName: 'Fire' },
-
-    { fileName: 'camera_1.png',  displayName: 'Camera' },
-    { fileName: 'camera_2.png',  displayName: 'Camera' },
-    { fileName: 'camera_3.png',  displayName: 'Camera' },
-
-    { fileName: 'compass_1.png',  displayName: 'Compass' },
-    { fileName: 'compass_2.png',  displayName: 'Compass' },
-    { fileName: 'compass_3.png',  displayName: 'Compass' },
-
-    { fileName: 'jerrycan_1.png',  displayName: 'Jerrycan' },
-    { fileName: 'jerrycan_2.png',  displayName: 'Jerrycan' },
-    { fileName: 'jerrycan_3.png',  displayName: 'Jerrycan' },
-
-    { fileName: 'snowman_1.png',  displayName: 'Snowman' },
-    { fileName: 'snowman_2.png',  displayName: 'Snowman' },
-    { fileName: 'snowman_3.png',  displayName: 'Snowman' },
-
-    { fileName: 'scissor_1.png',  displayName: 'Scissors' },
-    { fileName: 'scissor_2.png',  displayName: 'Scissors' },
-    { fileName: 'scissor_3.png',  displayName: 'Scissors' },
-
-    { fileName: 'feather_1.png',  displayName: 'Feather' },
-    { fileName: 'feather_2.png',  displayName: 'Feather' },
-    { fileName: 'feather_3.png',  displayName: 'Feather' },
-
-    { fileName: 'book_1.png',  displayName: 'Book' },
-    { fileName: 'book_2.png',  displayName: 'Book' },
-    { fileName: 'book_3.png',  displayName: 'Book' },
-
-    { fileName: 'clock_1.png',  displayName: 'Clock' },
-    { fileName: 'clock_2.png',  displayName: 'Clock' },
-    { fileName: 'clock_3.png',  displayName: 'Clock' },
-
-    { fileName: 'piggy_bank_1.png',  displayName: 'Piggy Bank' },
-    { fileName: 'piggy_bank_2.png',  displayName: 'Piggy Bank' },
-    { fileName: 'piggy_bank_3.png',  displayName: 'Piggy Bank' },
-
-    { fileName: 'heart_1.png',  displayName: 'Heart' },
-    { fileName: 'heart_2.png',  displayName: 'Heart' },
-    { fileName: 'heart_3.png',  displayName: 'Heart' },
-
-    { fileName: 'apple_1.png',  displayName: 'Apple' },
-    { fileName: 'apple_2.png',  displayName: 'Apple' },
-    { fileName: 'apple_3.png',  displayName: 'Apple' },
-    
-    { fileName: 'star_1.png',  displayName: 'Star' },
-    { fileName: 'star_2.png',  displayName: 'Star' },
-    { fileName: 'star_3.png',  displayName: 'Star' },
-
-    { fileName: 'frog_1.png',  displayName: 'Frog' },
-    { fileName: 'frog_2.png',  displayName: 'Frog' },
-    { fileName: 'frog_3.png',  displayName: 'Frog' },
-
-    { fileName: 'solar_1.png',  displayName: 'Solar' },
-    { fileName: 'solar_2.png',  displayName: 'Solar' },
-    { fileName: 'solar_3.png',  displayName: 'Solar' },
-
-    { fileName: 'shield_1.png',  displayName: 'Shield' },
-    { fileName: 'shield_2.png',  displayName: 'Shield' },
-    { fileName: 'shield_3.png',  displayName: 'Shield' },
-
-    { fileName: 'burger_1.png',  displayName: 'Burger' },
-    { fileName: 'burger_2.png',  displayName: 'Burger' },
-    { fileName: 'burger_3.png',  displayName: 'Burger' },
-
-    { fileName: 'dove_1.png',  displayName: 'Dove' },
-    { fileName: 'dove_2.png',  displayName: 'Dove' },
-    { fileName: 'dove_3.png',  displayName: 'Dove' },
-
-    { fileName: 'battery_1.png',  displayName: 'Icon' },
-    { fileName: 'battery_2.png',  displayName: 'Icon' },
-    { fileName: 'battery_3.png',  displayName: 'Icon' },
-
-    { fileName: 'octopus_1.png',  displayName: 'Octopus' },
-    { fileName: 'octopus_2.png',  displayName: 'Octopus' },
-    { fileName: 'octopus_3.png',  displayName: 'Octopus' },
- 
-    { fileName: 'test_tube_1.png',  displayName: 'Test Tube' },
-    { fileName: 'test_tube_2.png',  displayName: 'Test Tube' },
-    { fileName: 'test_tube_3.png',  displayName: 'Test Tube' },
- 
-    { fileName: 'jar_1.png',  displayName: 'Jar' },
-    { fileName: 'jar_2.png',  displayName: 'Jar' },
-    { fileName: 'jar_3.png',  displayName: 'Jar' },
- 
-    { fileName: 'jug_1.png', displayName: 'Jug' },
-    { fileName: 'jug_2.png', displayName: 'Jug' },
-    { fileName: 'jug_3.png', displayName: 'Jug' },
-
-    { fileName: 'mango_1.png', displayName: 'Mango' },
-    { fileName: 'mango_2.png', displayName: 'Mango' },
-    { fileName: 'mango_3.png', displayName: 'Mango' },
-    
-    { fileName: 'suitcase_1.png', displayName: 'Suitcase' },
-    { fileName: 'suitcase_2.png', displayName: 'Suitcase' },
-    { fileName: 'suitcase_3.png', displayName: 'Suitcase' },
-    
-    { fileName: 'briefcase_1.png', displayName: 'Briefcase' },
-    { fileName: 'briefcase_2.png', displayName: 'Briefcase' },
-    { fileName: 'briefcase_3.png', displayName: 'Briefcase' },
-
-    { fileName: 'lamp_1.png', displayName: 'Lamp' },
-    { fileName: 'lamp_2.png', displayName: 'Lamp' },
-    { fileName: 'lamp_3.png', displayName: 'Lamp' },
-    
-];
 
 // ==================================================================================
 // HELPER FUNCTIONS - Used by the game code
