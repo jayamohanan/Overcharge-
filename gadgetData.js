@@ -320,6 +320,30 @@ var GADGET_SPRITES = [
             "rampExp": 2.0   // >1 = slow early, keeps accelerating as charge fills
         }
     },
+    {
+        // Reciprocating saw: handle.png is the base gadget (fit into the standard
+        // max-area rect like every other gadget). The "reciprocating_saw" charge
+        // effect layers
+        // blade.png behind the handle at offset (100,27) from the handle's top-left
+        // (handle-native px, scaled with the handle). While charging, the blade slides
+        // right to x=112 (max extension) and back to x=90 (retracted into the handle),
+        // and the stroke speed ramps up with charge.
+        "name": "reciprocating_saw",
+        "normal_sprite": "reciprocating_saw/handle.png",
+        "burnedout_sprite": "reciprocating_saw/handle.png",
+        "connection_height": 0.3,
+        "connection_left_padding": 0.5,
+        "charge_effect": "reciprocating_saw",
+        "charge_effect_params": {
+            "blade": "reciprocating_saw/blade.png",
+            "offset":   { "x": 100, "y": 22 },  // blade rest position (top-left)
+            "extendX":  112,                     // max extension (blade slides right)
+            "retractX": 90,                      // retracted into handle (blade slides left)
+            "minSpm": 120,    // strokes/min just after charging begins
+            "maxSpm": 1400,   // strokes/min at full charge
+            "rampExp": 2.0    // >1 = slow early, keeps accelerating as charge fills
+        }
+    },
 ];
 
 // ============================================================
@@ -329,8 +353,8 @@ var GADGET_SPRITES = [
 // Swap entries here to rearrange levels — no need to touch GADGET_SPRITES.
 // Cycles back to the start once levels run past the end of this list.
 var GADGET_LEVEL_ORDER = [
-     
 
+    "reciprocating_saw",
     "table_fan",
     "blender",
      "washing_machine",

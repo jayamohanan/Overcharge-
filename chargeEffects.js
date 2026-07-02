@@ -672,6 +672,126 @@ var CHARGE_EFFECTS = {
             p._fx.rpTape1 = p._fx.rpTape2 = null;
             p._fx.rpDiscs = null;
         }
+    },
+
+    // ── RECIPROCATING SAW ─────────────────────────────────────────────────────
+    // handle.png is the base gadget (sized to the LEFT HALF of the max-area rect);
+    // blade.png is layered BEHIND the handle at offset (100,27) from the handle's
+    // top-left (handle-native px, scaled with the handle) so the blade's shank
+    // disappears into the housing. The blade rests at its spawn x until charging
+    // begins, then reciprocates: sliding right to `extendX` (max extension) and back
+    // to `retractX` (retracted into the handle), with the stroke speed ramping from
+    // `minSpm` up to `maxSpm` strokes/min as charge fills.
+    reciprocating_saw: {
+        assets(params) {
+            return { blade: (params.blade || 'reciprocating_saw/blade.png') };
+        },
+
+        init(scene, p, params) {
+            p._fx = p._fx || {};
+
+            const bodyKey  = `gadget_${p._gadgetName}_normal`;
+            const bladeKey = `fx_${p._gadgetName}_blade`;
+            if (!scene.textures.exists(bodyKey) || !scene.textures.exists(bladeKey)) return;
+
+            // Match the scale the handle was drawn at, so the blade & its offset keep
+            // their real proportions relative to the handle.
+            const bodyImg = scene.textures.get(bodyKey).getSourceImage();
+            const scale   = p._gadgetDisplayWidth / bodyImg.width;
+
+            // Handle's top-left in world space (handle is centred on the origin).
+            const bodyLeft = p._gadgetOriginX - p._gadgetDisplayWidth  / 2;
+            const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
+            const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
+
+            const off  = params.offset || { x: 100, y: 27 };
+            const outX = params.extendX  ?? 112;   // max extension (blade slides right)
+            const inX  = params.retractX ?? 90;     // retracted into handle (slides left)
+
+            // Blade drawn BEHIND the handle so its shank is hidden inside the housing
+            // and only the protruding length shows. Origin 0,0 → x/y map straight to
+            // the given handle-native-pixel offset.
+            const bladeImg = scene.textures.get(bladeKey).getSourceImage();
+            const blade = scene.add.image(bodyLeft + off.x * scale, bodyTop + off.y * scale, bladeKey)
+                .setOrigin(0, 0)
+                .setDepth(baseDepth - 0.05);
+            blade.setDisplaySize(bladeImg.width * scale, bladeImg.height * scale);
+
+            // Fade the blade in alongside the handle's pop-in so it doesn't flash at
+            // full size while the handle is still growing.
+            const idx = (scene.platforms ? scene.platforms.indexOf(p) : 0);
+            blade.setAlpha(0);
+            scene.tweens.add({
+                targets: blade, alpha: 1, duration: 400,
+                delay: Math.max(0, idx) * 150, ease: 'Sine.easeOut'
+            });
+
+            p._fx.sawBlade     = blade;
+            p._fx.sawTween     = null;
+            p._fx.sawSpeedTween = null;
+            p._fx.sawInX       = bodyLeft + inX  * scale;
+            p._fx.sawOutX      = bodyLeft + outX * scale;
+            // One full stroke cycle (in→out→in) takes baseCycleMs at timeScale 1,
+            // i.e. sawBaseSpm strokes/min; we throttle timeScale to hit the target spm.
+            const baseCycleMs = 1000;
+            p._fx.sawHalfMs    = baseCycleMs / 2;
+            p._fx.sawBaseSpm   = 60000 / baseCycleMs;   // strokes/min at timeScale 1
+            p._fx.sawMinSpm    = params.minSpm  ?? 120;  // just after charging begins
+            p._fx.sawMaxSpm    = params.maxSpm  ?? 1400; // at full charge
+            p._fx.sawRampExp   = params.rampExp ?? 2.0;  // >1 = slow early, ramps later
+            p._fx.sawSmoothMs  = params.speedSmoothMs ?? 700; // glide-to-target time
+        },
+
+        onProgress(scene, p, progress, params) {
+            if (!p._fx || !p._fx.sawBlade) return;
+            const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
+            const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
+
+            // Start the reciprocation lazily on the first charge tick so the blade
+            // rests at its spawn position until charging actually begins.
+            if (!p._fx.sawTween && progress > 0) {
+                const blade = p._fx.sawBlade;
+                p._fx.sawTween = scene.tweens.add({
+                    targets: blade,
+                    x: { from: p._fx.sawInX, to: p._fx.sawOutX },
+                    duration: p._fx.sawHalfMs,
+                    yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+                });
+                p._fx.sawTween.timeScale = 0;
+            }
+            const tween = p._fx.sawTween;
+            if (!tween) return;
+
+            // Hold still until `spinStart` of charge, then remap so the stroke begins
+            // at 0 right at that threshold and scales to 1 at full charge. Ease the
+            // curve (tt^rampExp) so it keeps accelerating across the whole fill, then
+            // glide the timeScale toward the target (MoveTowards-style) instead of
+            // snapping when charge arrives in discrete steps.
+            const start  = params.spinStart ?? 0.05;
+            const tt     = start >= 1 ? 0 : Math.max(0, (t - start) / (1 - start));
+            const eased  = Math.pow(tt, p._fx.sawRampExp);
+            const spm    = p._fx.sawMinSpm + (p._fx.sawMaxSpm - p._fx.sawMinSpm) * eased;
+            const target = spm / p._fx.sawBaseSpm;
+
+            if (p._fx.sawSpeedTween) p._fx.sawSpeedTween.remove();
+            p._fx.sawSpeedTween = scene.tweens.add({
+                targets: tween, timeScale: target,
+                duration: p._fx.sawSmoothMs, ease: 'Linear'
+            });
+        },
+
+        onOvercharge() { /* keep sawing until the explosion/cleanup tears it down */ },
+
+        cleanup(scene, p) {
+            if (!p._fx) return;
+            if (p._fx.sawSpeedTween) { p._fx.sawSpeedTween.remove(); p._fx.sawSpeedTween = null; }
+            if (p._fx.sawTween) { p._fx.sawTween.remove(); p._fx.sawTween = null; }
+            if (p._fx.sawBlade) {
+                scene.tweens.killTweensOf(p._fx.sawBlade);
+                p._fx.sawBlade.destroy();
+                p._fx.sawBlade = null;
+            }
+        }
     }
 };
 

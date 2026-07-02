@@ -248,6 +248,12 @@ var CONFIG = {
         WASHING_MIN_FPS: 4,            // loop speed just after charging begins (slow tumble)
         WASHING_MAX_FPS: 24,           // loop speed at full charge (fast spin)
 
+        // Reciprocating saw: handle.png is the base gadget (fit into the standard
+        // max-area rect like every other gadget). The blade (blade.png) is layered by
+        // the "reciprocating_saw" charge effect and slides in/out of the handle as it
+        // charges.
+        RECIP_SAW_GADGET_NAME: 'reciprocating_saw',
+
         // T-shirt cloth shown to the LEFT of the machine; revealed with an organic
         // wavy stitching front as the gadget charges 0 → 1 (a needle glint + running
         // stitch trail ride the reveal front).

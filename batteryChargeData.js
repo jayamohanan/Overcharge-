@@ -56,9 +56,13 @@ var BATTERY_TYPES_RESERVE = [
 
 ];
 var BATTERY_TYPES = [
-      { name: 'Battery', count: 3 },        // 1
+
+{ name: 'Rabbit', count: 3 },          // 40
+
+
+{ name: 'Battery', count: 3 },        // 1
 { name: 'Star', count: 3 },           // 4
- { name: 'Heart', count: 3 },          // 5
+{ name: 'Heart', count: 3 },          // 5
 { name: 'Scissor', count: 3 },       // 6
 { name: 'Shield', count: 3 },         // 7
 { name: 'Jar', count: 3 },            // 8
@@ -96,7 +100,6 @@ var BATTERY_TYPES = [
 { name: 'Mouse', count: 3 },          // 40
 { name: 'Rabbit', count: 3 },         // 41
 { name: 'Octopus', count: 3 },        // 42
-{ name: 'Spider', count: 3 },         // 43
 { name: 'Dragon', count: 3 },         // 44
 { name: 'Eagle', count: 3 },          // 45
 { name: 'Lion', count: 3 },           // 46

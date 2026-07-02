@@ -1,0 +1,3 @@
+Balde offset full extension: 112, 27
+Blade inside: 90, 27
+Initial psoition (100,27)

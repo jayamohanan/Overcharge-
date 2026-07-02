@@ -103,14 +103,14 @@ class LevelEditorScene extends Phaser.Scene {
     preload() {
         // Load all vehicle sprites dynamically from CONFIG.VEHICLES
         CONFIG.VEHICLES.forEach(vehicle => {
-            this.load.image(vehicle.key, `graphics/vehicles/${vehicle.key}.png`);
+            this.load.image(vehicle.key, `../graphics/vehicles/${vehicle.key}.png`);
         });
         
         // Load road sprite
-        this.load.image('road', 'graphics/road_80.png');
+        this.load.image('road', '../graphics/road_80.png');
         
         // Load library/shop building
-        this.load.image('pizza_shop', 'graphics/library.png');
+        this.load.image('pizza_shop', '../graphics/library.png');
         
         // Load EV charger sprites
         this.load.image('ev_charger_red', 'graphics/charger_red.png');
