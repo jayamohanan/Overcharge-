@@ -323,11 +323,12 @@ var GADGET_SPRITES = [
     {
         // Reciprocating saw: handle.png is the base gadget (fit into the standard
         // max-area rect like every other gadget). The "reciprocating_saw" charge
-        // effect layers
-        // blade.png behind the handle at offset (100,27) from the handle's top-left
-        // (handle-native px, scaled with the handle). While charging, the blade slides
-        // right to x=112 (max extension) and back to x=90 (retracted into the handle),
-        // and the stroke speed ramps up with charge.
+        // effect drives a Scotch-yoke mechanism layered behind the handle: a DISC
+        // rotates clockwise, and the YOKE + BLADE are pushed back and forth
+        // horizontally by cos(disc angle). All offsets are the sprite's TOP-LEFT in
+        // handle-native px (scaled with the handle). At disc angle 0° everything sits
+        // at its max-right (spawn) position; at 180° at its max-left; one full disc
+        // revolution = one complete to-fro stroke.
         "name": "reciprocating_saw",
         "normal_sprite": "reciprocating_saw/handle.png",
         "burnedout_sprite": "reciprocating_saw/handle.png",
@@ -336,11 +337,19 @@ var GADGET_SPRITES = [
         "charge_effect": "reciprocating_saw",
         "charge_effect_params": {
             "blade": "reciprocating_saw/blade.png",
-            "offset":   { "x": 100, "y": 22 },  // blade rest position (top-left)
-            "extendX":  112,                     // max extension (blade slides right)
-            "retractX": 90,                      // retracted into handle (blade slides left)
-            "minSpm": 120,    // strokes/min just after charging begins
-            "maxSpm": 1400,   // strokes/min at full charge
+            "disc":  "reciprocating_saw/disc.png",
+            "yoke":  "reciprocating_saw/yoke.png",
+            "partsOffset": { "x": 0, "y": 0 },   // global nudge for disc+yoke+blade (native px)
+            // Reference display sizes (current file dims). Fixed here so a higher-res
+            // PNG just renders crisper without changing how big the part appears.
+            "discSize":  { "w": 30,  "h": 30 },
+            "yokeSize":  { "w": 53,  "h": 34 },
+            "bladeSize": { "w": 124, "h": 12 },
+            "discOffset": { "x": 50, "y": 13 },  // disc top-left (rotates about its centre)
+            "bladeRight": 102, "bladeLeft": 82, "bladeY": 22,  // blade x at 0° / 180°, fixed y
+            "yokeRight":  70,  "yokeLeft":  48, "yokeY":  11,  // yoke  x at 0° / 180°, fixed y
+            "minRpm": 60,     // disc rpm just after charging begins
+            "maxRpm": 600,    // disc rpm at full charge
             "rampExp": 2.0    // >1 = slow early, keeps accelerating as charge fills
         }
     },

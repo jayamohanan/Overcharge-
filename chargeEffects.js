@@ -675,16 +675,23 @@ var CHARGE_EFFECTS = {
     },
 
     // ── RECIPROCATING SAW ─────────────────────────────────────────────────────
-    // handle.png is the base gadget (sized to the LEFT HALF of the max-area rect);
-    // blade.png is layered BEHIND the handle at offset (100,27) from the handle's
-    // top-left (handle-native px, scaled with the handle) so the blade's shank
-    // disappears into the housing. The blade rests at its spawn x until charging
-    // begins, then reciprocates: sliding right to `extendX` (max extension) and back
-    // to `retractX` (retracted into the handle), with the stroke speed ramping from
-    // `minSpm` up to `maxSpm` strokes/min as charge fills.
+    // A Scotch-yoke mechanism layered ON TOP of handle.png (the base gadget): a DISC
+    // spins clockwise and, through the YOKE, drives the YOKE + BLADE back and forth
+    // horizontally. Both linear parts follow x(angle) = centre + amplitude*cos(angle),
+    // so at disc angle 0° they sit at their max-RIGHT (spawn) position, at 180° at
+    // their max-LEFT, and one full disc revolution = one complete to-fro stroke.
+    //
+    // All offsets are each sprite's TOP-LEFT in handle-native px (scaled with the
+    // handle); the disc alone uses a centred origin so it rotates about its middle.
+    // Layer order over the handle is handle < disc < yoke < blade. The disc speed
+    // ramps from `minRpm` up to `maxRpm` as charge fills.
     reciprocating_saw: {
         assets(params) {
-            return { blade: (params.blade || 'reciprocating_saw/blade.png') };
+            return {
+                blade: (params.blade || 'reciprocating_saw/blade.png'),
+                disc:  (params.disc  || 'reciprocating_saw/disc.png'),
+                yoke:  (params.yoke  || 'reciprocating_saw/yoke.png')
+            };
         },
 
         init(scene, p, params) {
@@ -692,9 +699,11 @@ var CHARGE_EFFECTS = {
 
             const bodyKey  = `gadget_${p._gadgetName}_normal`;
             const bladeKey = `fx_${p._gadgetName}_blade`;
+            const discKey  = `fx_${p._gadgetName}_disc`;
+            const yokeKey  = `fx_${p._gadgetName}_yoke`;
             if (!scene.textures.exists(bodyKey) || !scene.textures.exists(bladeKey)) return;
 
-            // Match the scale the handle was drawn at, so the blade & its offset keep
+            // Match the scale the handle was drawn at, so every part & its offset keep
             // their real proportions relative to the handle.
             const bodyImg = scene.textures.get(bodyKey).getSourceImage();
             const scale   = p._gadgetDisplayWidth / bodyImg.width;
@@ -704,78 +713,128 @@ var CHARGE_EFFECTS = {
             const bodyTop  = p._gadgetOriginY - p._gadgetDisplayHeight / 2;
             const baseDepth = (p.gadgetSprite ? p.gadgetSprite.depth : 4);
 
-            const off  = params.offset || { x: 100, y: 27 };
-            const outX = params.extendX  ?? 112;   // max extension (blade slides right)
-            const inX  = params.retractX ?? 90;     // retracted into handle (slides left)
+            // Optional global nudge (handle-native px) for the whole mechanism, in
+            // case the Figma reference and the sprite box don't line up perfectly.
+            // Every part offset below is measured from (partLeft, partTop).
+            const po = params.partsOffset || { x: 0, y: 0 };
+            const partLeft = bodyLeft + (po.x || 0) * scale;
+            const partTop  = bodyTop  + (po.y || 0) * scale;
 
-            // Blade drawn BEHIND the handle so its shank is hidden inside the housing
-            // and only the protruding length shows. Origin 0,0 → x/y map straight to
-            // the given handle-native-pixel offset.
-            const bladeImg = scene.textures.get(bladeKey).getSourceImage();
-            const blade = scene.add.image(bodyLeft + off.x * scale, bodyTop + off.y * scale, bladeKey)
-                .setOrigin(0, 0)
-                .setDepth(baseDepth - 0.05);
-            blade.setDisplaySize(bladeImg.width * scale, bladeImg.height * scale);
+            // ── Scotch-yoke geometry (handle-native px) ──────────────────────────
+            const bladeRight = params.bladeRight ?? 102;  // blade x at disc 0°  (max right)
+            const bladeLeft  = params.bladeLeft  ?? 82;   // blade x at disc 180° (max left)
+            const bladeY     = params.bladeY     ?? 28;
+            const yokeRight  = params.yokeRight  ?? 70;    // yoke x at disc 0°  (max right)
+            const yokeLeft   = params.yokeLeft   ?? 48;    // yoke x at disc 180° (max left)
+            const yokeY      = params.yokeY      ?? 20;
+            const discOff    = params.discOffset || { x: 50, y: 19 };
 
-            // Fade the blade in alongside the handle's pop-in so it doesn't flash at
+            // Reference (logical) sizes in handle-native px — the CURRENT file
+            // dimensions, hard-coded so display size no longer follows the file's
+            // resolution. Swap in a higher-res PNG and it just renders crisper
+            // (downscaled to `size * scale`) without changing how big it appears.
+            const discSize  = params.discSize  || { w: 30,  h: 30 };
+            const yokeSize  = params.yokeSize  || { w: 53,  h: 34 };
+            const bladeSize = params.bladeSize || { w: 124, h: 12 };
+
+            // x(angle) = centre + amplitude*cos(angle): cos(0)=+1 → max right,
+            // cos(180)=-1 → max left. Stored in native px; scaled to world in apply().
+            const bladeCx = (bladeRight + bladeLeft) / 2, bladeAmp = (bladeRight - bladeLeft) / 2;
+            const yokeCx  = (yokeRight  + yokeLeft)  / 2, yokeAmp  = (yokeRight  - yokeLeft)  / 2;
+
+            // Place a top-left-origin layer at a native-px offset, sized from its
+            // reference dims (× scale), not the file's own resolution. x is set later
+            // by apply() for the moving parts, so the initial x here is just the spawn.
+            const placeTL = (key, depth, nx, ny, size) => {
+                if (!scene.textures.exists(key)) return null;
+                const s = scene.add.image(partLeft + nx * scale, partTop + ny * scale, key)
+                    .setOrigin(0, 0).setDepth(depth);
+                s.setDisplaySize(size.w * scale, size.h * scale);
+                return s;
+            };
+
+            // Disc rotates about its own centre → centred origin, placed at
+            // (discOff + halfSize). Sized from its reference dims, not the file's.
+            let disc = null;
+            if (scene.textures.exists(discKey)) {
+                const w = discSize.w * scale, h = discSize.h * scale;
+                disc = scene.add.image(
+                    partLeft + discOff.x * scale + w / 2,
+                    partTop  + discOff.y * scale + h / 2,
+                    discKey
+                ).setDepth(baseDepth + 0.05);
+                disc.setDisplaySize(w, h);
+            }
+
+            // Stack on top of the handle: handle < disc < yoke < blade.
+            const yoke  = placeTL(yokeKey,  baseDepth + 0.10, yokeRight,  yokeY, yokeSize);
+            const blade = placeTL(bladeKey, baseDepth + 0.15, bladeRight, bladeY, bladeSize);
+
+            // Fade the parts in alongside the handle's pop-in so they don't flash at
             // full size while the handle is still growing.
             const idx = (scene.platforms ? scene.platforms.indexOf(p) : 0);
-            blade.setAlpha(0);
-            scene.tweens.add({
-                targets: blade, alpha: 1, duration: 400,
-                delay: Math.max(0, idx) * 150, ease: 'Sine.easeOut'
+            [disc, yoke, blade].forEach(s => {
+                if (!s) return;
+                s.setAlpha(0);
+                scene.tweens.add({
+                    targets: s, alpha: 1, duration: 400,
+                    delay: Math.max(0, idx) * 150, ease: 'Sine.easeOut'
+                });
             });
 
+            // Drive every part from a single rotating angle so they stay perfectly in
+            // sync: the disc angle IS the mechanism phase. apply() re-derives the two
+            // linear positions from cos(angle) each frame the driver advances.
+            const driver = { a: 0 };
+            const apply = () => {
+                const c = Math.cos(Phaser.Math.DegToRad(driver.a));
+                if (disc)  disc.angle = driver.a;   // +angle = clockwise in Phaser
+                if (yoke)  yoke.x  = partLeft + (yokeCx  + yokeAmp  * c) * scale;
+                if (blade) blade.x = partLeft + (bladeCx + bladeAmp * c) * scale;
+            };
+            apply();   // seat everything at angle 0 (max-right spawn) before charging
+
+            // One full revolution takes baseRevMs at timeScale 1 (= 60 rpm); we
+            // throttle timeScale from 0 up to the charge-driven target rpm.
+            const baseRevMs = 1000;
+            const spin = scene.tweens.add({
+                targets: driver, a: 360, duration: baseRevMs,
+                repeat: -1, ease: 'Linear', onUpdate: apply
+            });
+            spin.timeScale = 0;
+
+            p._fx.sawDisc      = disc;
+            p._fx.sawYoke      = yoke;
             p._fx.sawBlade     = blade;
-            p._fx.sawTween     = null;
+            p._fx.sawSpin      = spin;
             p._fx.sawSpeedTween = null;
-            p._fx.sawInX       = bodyLeft + inX  * scale;
-            p._fx.sawOutX      = bodyLeft + outX * scale;
-            // One full stroke cycle (in→out→in) takes baseCycleMs at timeScale 1,
-            // i.e. sawBaseSpm strokes/min; we throttle timeScale to hit the target spm.
-            const baseCycleMs = 1000;
-            p._fx.sawHalfMs    = baseCycleMs / 2;
-            p._fx.sawBaseSpm   = 60000 / baseCycleMs;   // strokes/min at timeScale 1
-            p._fx.sawMinSpm    = params.minSpm  ?? 120;  // just after charging begins
-            p._fx.sawMaxSpm    = params.maxSpm  ?? 1400; // at full charge
+            p._fx.sawMinRpm    = params.minRpm  ?? 60;   // just after charging begins
+            p._fx.sawMaxRpm    = params.maxRpm  ?? 600;  // at full charge
             p._fx.sawRampExp   = params.rampExp ?? 2.0;  // >1 = slow early, ramps later
             p._fx.sawSmoothMs  = params.speedSmoothMs ?? 700; // glide-to-target time
+            p._fx.sawBaseRpm   = 60000 / baseRevMs;      // rpm at timeScale 1
         },
 
         onProgress(scene, p, progress, params) {
-            if (!p._fx || !p._fx.sawBlade) return;
+            const spin = p._fx && p._fx.sawSpin;
+            if (!spin) return;
             const mark = CONFIG.PLATFORM.OPERATING_CAPACITY_MARK || 1;
             const t    = Math.min(progress / mark, 1);   // 0 → 1 by the mark, then held
 
-            // Start the reciprocation lazily on the first charge tick so the blade
-            // rests at its spawn position until charging actually begins.
-            if (!p._fx.sawTween && progress > 0) {
-                const blade = p._fx.sawBlade;
-                p._fx.sawTween = scene.tweens.add({
-                    targets: blade,
-                    x: { from: p._fx.sawInX, to: p._fx.sawOutX },
-                    duration: p._fx.sawHalfMs,
-                    yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-                });
-                p._fx.sawTween.timeScale = 0;
-            }
-            const tween = p._fx.sawTween;
-            if (!tween) return;
-
-            // Hold still until `spinStart` of charge, then remap so the stroke begins
-            // at 0 right at that threshold and scales to 1 at full charge. Ease the
-            // curve (tt^rampExp) so it keeps accelerating across the whole fill, then
-            // glide the timeScale toward the target (MoveTowards-style) instead of
-            // snapping when charge arrives in discrete steps.
+            // Hold still until `spinStart` of charge, then remap so the disc begins at
+            // 0 right at that threshold and scales to 1 at full charge. Ease the curve
+            // (tt^rampExp) so it keeps accelerating across the whole fill, then glide
+            // the timeScale toward the target (MoveTowards-style) instead of snapping
+            // when charge arrives in discrete steps.
             const start  = params.spinStart ?? 0.05;
             const tt     = start >= 1 ? 0 : Math.max(0, (t - start) / (1 - start));
             const eased  = Math.pow(tt, p._fx.sawRampExp);
-            const spm    = p._fx.sawMinSpm + (p._fx.sawMaxSpm - p._fx.sawMinSpm) * eased;
-            const target = spm / p._fx.sawBaseSpm;
+            const rpm    = p._fx.sawMinRpm + (p._fx.sawMaxRpm - p._fx.sawMinRpm) * eased;
+            const target = rpm / p._fx.sawBaseRpm;
 
             if (p._fx.sawSpeedTween) p._fx.sawSpeedTween.remove();
             p._fx.sawSpeedTween = scene.tweens.add({
-                targets: tween, timeScale: target,
+                targets: spin, timeScale: target,
                 duration: p._fx.sawSmoothMs, ease: 'Linear'
             });
         },
@@ -785,12 +844,13 @@ var CHARGE_EFFECTS = {
         cleanup(scene, p) {
             if (!p._fx) return;
             if (p._fx.sawSpeedTween) { p._fx.sawSpeedTween.remove(); p._fx.sawSpeedTween = null; }
-            if (p._fx.sawTween) { p._fx.sawTween.remove(); p._fx.sawTween = null; }
-            if (p._fx.sawBlade) {
-                scene.tweens.killTweensOf(p._fx.sawBlade);
-                p._fx.sawBlade.destroy();
-                p._fx.sawBlade = null;
-            }
+            if (p._fx.sawSpin) { p._fx.sawSpin.remove(); p._fx.sawSpin = null; }
+            [p._fx.sawDisc, p._fx.sawYoke, p._fx.sawBlade].forEach(s => {
+                if (!s) return;
+                scene.tweens.killTweensOf(s);
+                s.destroy();
+            });
+            p._fx.sawDisc = p._fx.sawYoke = p._fx.sawBlade = null;
         }
     }
 };

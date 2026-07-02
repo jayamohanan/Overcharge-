@@ -141,6 +141,8 @@ var CONFIG = {
     },
 
     MERGE_TUTORIAL: {
+        ENABLED: false,                // set true just before shipping — the swap-to-merge
+                                       // hand animation is disabled during development
         POINTER_OFFSET_Y: 50,
         ANIMATION_DURATION: 1000,
         ANIMATION_REPEAT: -1,

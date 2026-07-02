@@ -3543,6 +3543,7 @@ console.log(
     }
 
     checkAndShowMergeTutorial() {
+        if (!CONFIG.MERGE_TUTORIAL.ENABLED) return;   // disabled during development
         if (!this.mergeTutorialShown && this.batteries.length === 2 && !this.mergePointer) {
             this.createMergeTutorial();
         }
